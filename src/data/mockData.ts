@@ -26,6 +26,10 @@ export interface TrendItem {
   metrics?: TrendMetric[]; // 각 트렌드별 개별 지표
   evidence?: TrendEvidence; // AI 근거 설명 데이터 (꿀조합용)
   reviewKeywords?: ReviewKeywords; // 긍정/부정 리뷰 키워드 (꿀조합용)
+  ingredients?: string[]; // 성분 키워드 (DB 기반)
+  formulas?: string[]; // 제형 키워드 (DB 기반)
+  effects?: string[]; // 효과 키워드 (DB 기반)
+  moods?: string[]; // 무드 키워드 (DB 기반)
 }
 
 export type Country = 'domestic' | 'usa' | 'japan' | 'singapore' | 'malaysia' | 'indonesia';
@@ -154,6 +158,7 @@ export type CountryLeaderboardData = {
 export interface ReportResult {
   type: 'marketing' | 'npd' | 'overseas';
   content: string;
+  sources?: { title: string; source: string }[];
 }
 
 export const trendData: TrendItem[] = [

@@ -1,0 +1,7 @@
+langchain>=0.1.0
+langchain-google-genai>=1.0.0
+langgraph>=0.0.20
+pymongo>=4.6.1
+python-dotenv>=1.0.0
+google-generativeai>=0.3.0
+

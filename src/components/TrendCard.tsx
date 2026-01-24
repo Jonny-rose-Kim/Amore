@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { TrendItem } from '../data/mockData';
 import { useState, useEffect } from 'react';
+import { translateCombination } from '../utils/koreanTranslations';
 
 interface TrendCardProps {
   item: TrendItem;
@@ -103,7 +104,14 @@ export default function TrendCard({ item, isExpanded, onToggle, onClick }: Trend
                 {item.status}
               </span>
             </div>
-            <h3 className="text-slate-900 font-medium">{item.combination}</h3>
+            <h3 className="text-slate-900 font-medium">
+              {item.combination}
+              {item.combination && (
+                <span className="text-slate-500 text-xs font-normal ml-1">
+                  ({translateCombination(item.combination)})
+                </span>
+              )}
+            </h3>
           </div>
         </div>
       </div>

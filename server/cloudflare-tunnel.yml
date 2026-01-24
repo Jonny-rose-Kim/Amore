@@ -1,0 +1,32 @@
+# Cloudflare Tunnel Configuration
+# This file configures cloudflared to expose local GPU servers
+#
+# Setup:
+# 1. Install cloudflared: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
+# 2. Login: cloudflared tunnel login
+# 3. Create tunnel: cloudflared tunnel create amore-gpu
+# 4. Route DNS: cloudflared tunnel route dns amore-gpu gpu0.yourdomain.com
+#              cloudflared tunnel route dns amore-gpu gpu1.yourdomain.com
+#              cloudflared tunnel route dns amore-gpu gpu2.yourdomain.com
+#              cloudflared tunnel route dns amore-gpu gpu3.yourdomain.com
+# 5. Update this file with your tunnel ID and hostnames
+# 6. Run: cloudflared tunnel run amore-gpu
+
+tunnel: <YOUR_TUNNEL_ID>
+credentials-file: /root/.cloudflared/<YOUR_TUNNEL_ID>.json
+
+ingress:
+  # GPU 0: review-summary, sns-analysis, keyword-why, category-trend, rag-insight
+  - hostname: gpu0.yourdomain.com
+    service: http://localhost:5001
+  # GPU 1: plc-prediction, category-prediction, whitespace-product
+  - hostname: gpu1.yourdomain.com
+    service: http://localhost:5002
+  # GPU 2: country-strategy, category-strategy, whitespace-category
+  - hostname: gpu2.yourdomain.com
+    service: http://localhost:5003
+  # GPU 3: VLM chatbot (Qwen2-VL)
+  - hostname: gpu3.yourdomain.com
+    service: http://localhost:5004
+  # Catch-all (required by cloudflared)
+  - service: http_status:404

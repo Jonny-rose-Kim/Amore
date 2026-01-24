@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { BubbleItem, MainCategory, ItemType, TrendLevel, Country } from '../data/mockData';
+import { BubbleItem, MainCategory, ItemType, TrendLevel, TrendStatus, Country } from '../data/mockData';
 import InfoTooltip from './InfoTooltip';
 import { Info, Radio } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { leaderboardData, convertLeaderboardToBubbleItems, getCountryDataKey } from '../data/leaderboardData';
+import { fetchLeaderboard } from '../services/api';
+import { translateKeyword } from '../utils/koreanTranslations';
 
 type LeaderboardType = 'ingredient' | 'formula' | 'effect' | 'visual' | 'combined';
 type StatusFilter = 'all' | 'early' | 'growing' | 'actionable';
@@ -13,10 +15,11 @@ interface SegmentedLeaderboardProps {
   region?: 'domestic' | 'overseas';
   country?: Country;
   onSelectItem?: (item: BubbleItem, rank: number, type: 'ingredient' | 'formula' | 'effect' | 'visual' | 'combined') => void;
+  onCategoryChange?: (category: MainCategory) => void;
 }
 
-export default function SegmentedLeaderboard({ data, region = 'domestic', country = 'usa', onSelectItem }: SegmentedLeaderboardProps) {
-  const [selectedCategory, setSelectedCategory] = useState<MainCategory | null>(null);
+export default function SegmentedLeaderboard({ data, region = 'domestic', country = 'usa', onSelectItem, onCategoryChange }: SegmentedLeaderboardProps) {
+  const [selectedCategory, setSelectedCategory] = useState<MainCategory | null>('Skincare');
   const [activeType, setActiveType] = useState<LeaderboardType>('combined');
   // 각 타입별로 별도의 상태 필터 관리 (기본값 actionable)
   const [statusFilters, setStatusFilters] = useState<Record<LeaderboardType, Exclude<StatusFilter, 'all'>>>({
@@ -41,12 +44,93 @@ export default function SegmentedLeaderboard({ data, region = 'domestic', countr
     'Mens Care': '맨즈케어',
   };
   
+  // API에서 실제 데이터 가져오기
+  const [apiData, setApiData] = useState<BubbleItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  useEffect(() => {
+    if (selectedCategory) {
+      setIsLoading(true);
+      const itemTypeMap: Record<LeaderboardType, string> = {
+        ingredient: 'Ingredients',
+        formula: 'Texture',
+        effect: 'Effects',
+        visual: 'Visual/Mood',
+        combined: 'all'
+      };
+
+      const fetchType = itemTypeMap[activeType];
+
+      // 종합 탭은 모든 타입 데이터를 병합
+      const fetchPromise = fetchType === 'all'
+        ? Promise.all([
+            fetchLeaderboard(country, selectedCategory, 'Ingredients', statusFilters[activeType]),
+            fetchLeaderboard(country, selectedCategory, 'Texture', statusFilters[activeType]),
+            fetchLeaderboard(country, selectedCategory, 'Effects', statusFilters[activeType]),
+            fetchLeaderboard(country, selectedCategory, 'Visual/Mood', statusFilters[activeType]),
+          ]).then(([ing, tex, eff, vis]) => [...ing, ...tex, ...eff, ...vis].sort((a, b) => b.score - a.score).slice(0, 7))
+        : fetchLeaderboard(country, selectedCategory, fetchType, statusFilters[activeType]);
+
+      fetchPromise
+        .then(items => {
+          // API 데이터를 BubbleItem 형식으로 변환
+          const bubbleItems: BubbleItem[] = items.map((item, idx) => {
+            // API 응답의 trendLevel 사용, 없으면 현재 필터 기준
+            const level = item.trendLevel || (statusFilters[activeType] === 'actionable' ? 'Actionable' :
+                          statusFilters[activeType] === 'growing' ? 'Growing' : 'Early');
+            const statusMap: Record<string, TrendStatus> = {
+              'Actionable': '🚀 Actionable Trend',
+              'Growing': '📈 Growing Trend',
+              'Early': '🌱 Early Trend'
+            };
+            // Generate mock reviewKeywords based on keyword name
+            const positiveKeywords = ['효과 좋음', '보습력', '순한 성분', '재구매 의사', '가성비'];
+            const negativeKeywords = ['자극', '효과 미미', '가격 부담'];
+            const reviewKeywords = {
+              positive: positiveKeywords.map((kw, i) => ({
+                keyword: kw,
+                count: Math.floor(Math.random() * 80) + 20 + (positiveKeywords.length - i) * 10
+              })),
+              negative: negativeKeywords.map((kw, i) => ({
+                keyword: kw,
+                count: Math.floor(Math.random() * 30) + 5 + (negativeKeywords.length - i) * 5
+              }))
+            };
+
+            return {
+              id: `api-${item.keyword}-${idx}`,
+              name: item.keyword,
+              type: activeType === 'combined' ? 'combined' as const :
+                    activeType === 'ingredient' ? 'ingredient' as const :
+                    activeType === 'formula' ? 'formula' as const :
+                    activeType === 'effect' ? 'effect' as const : 'visual' as const,
+              x: Math.random() * 100,
+              y: Math.random() * 100,
+              size: item.score,
+              value: item.score,
+              status: statusMap[level] || ('📈 Growing Trend' as TrendStatus),
+              reviewKeywords
+            };
+          });
+          setApiData(bubbleItems);
+          setIsLoading(false);
+        })
+        .catch(error => {
+          console.error('API 데이터 로드 실패:', error);
+          setIsLoading(false);
+        });
+    }
+  }, [selectedCategory, country, activeType, statusFilters]);
+  
   // 새로운 데이터 구조 사용 여부 확인
   const countryDataKey = getCountryDataKey(country);
   const hasNewData = leaderboardData[countryDataKey] !== undefined;
   
-  // 새로운 데이터 구조를 사용하는 경우 데이터 변환
+  // 실제 API 데이터가 있으면 우선 사용, 없으면 mock 데이터 사용
   const displayData = useMemo(() => {
+    if (apiData.length > 0) {
+      return apiData;
+    }
     if (hasNewData && selectedCategory) {
       return convertLeaderboardToBubbleItems(
         leaderboardData[countryDataKey],
@@ -57,7 +141,7 @@ export default function SegmentedLeaderboard({ data, region = 'domestic', countr
       );
     }
     return data;
-  }, [hasNewData, selectedCategory, countryDataKey, country, data]);
+  }, [apiData, hasNewData, selectedCategory, countryDataKey, country, data]);
   
   const [isUpdating, setIsUpdating] = useState(false);
   const [updatedItems, setUpdatedItems] = useState<Set<string>>(new Set());
@@ -249,29 +333,44 @@ export default function SegmentedLeaderboard({ data, region = 'domestic', countr
             <span className="text-sm text-slate-900 font-medium">대분류 카테고리:</span>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={() => setSelectedCategory(null)}
-              className={`px-3 py-1.5 rounded-lg font-medium text-xs transition-all ${
-                selectedCategory === null
-                  ? 'bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-md shadow-rose-500/30'
-                  : 'bg-slate-100 text-slate-900 hover:bg-slate-200 border border-slate-300'
-              }`}
-            >
-              전체
-            </button>
-            {mainCategories.map((category) => (
-              <button
-                key={category}
-                onClick={() => setSelectedCategory(category)}
-                className={`px-3 py-1.5 rounded-lg font-medium text-xs transition-all ${
-                  selectedCategory === category
-                    ? 'bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-md shadow-rose-500/30'
-                    : 'bg-slate-100 text-slate-900 hover:bg-slate-200 border border-slate-300'
-                }`}
-              >
-                {categoryNames[category]}
-              </button>
-            ))}
+            {mainCategories.map((category) => {
+              const categoryEmojis: Record<MainCategory, string> = {
+                'Skincare': '🧴',
+                'Cleansing': '🫧',
+                'Sun Care': '☀️',
+                'Makeup': '💄',
+                'Hair Care': '💇‍♀️',
+                'Body Care': '🛁',
+                'Mens Care': '👨',
+              };
+              const categoryColors: Record<MainCategory, { selected: string; unselected: string }> = {
+                'Skincare': { selected: 'from-pink-500 to-rose-500', unselected: 'border-pink-300 hover:bg-pink-50' },
+                'Cleansing': { selected: 'from-sky-500 to-cyan-500', unselected: 'border-sky-300 hover:bg-sky-50' },
+                'Sun Care': { selected: 'from-amber-500 to-yellow-500', unselected: 'border-amber-300 hover:bg-amber-50' },
+                'Makeup': { selected: 'from-fuchsia-500 to-pink-500', unselected: 'border-fuchsia-300 hover:bg-fuchsia-50' },
+                'Hair Care': { selected: 'from-violet-500 to-purple-500', unselected: 'border-violet-300 hover:bg-violet-50' },
+                'Body Care': { selected: 'from-emerald-500 to-teal-500', unselected: 'border-emerald-300 hover:bg-emerald-50' },
+                'Mens Care': { selected: 'from-indigo-500 to-blue-500', unselected: 'border-indigo-300 hover:bg-indigo-50' },
+              };
+              const colors = categoryColors[category];
+              return (
+                <button
+                  key={category}
+                  onClick={() => {
+                    setSelectedCategory(category);
+                    onCategoryChange?.(category);
+                  }}
+                  className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all flex items-center gap-1 ${
+                    selectedCategory === category
+                      ? `bg-gradient-to-r ${colors.selected} text-white shadow-md scale-105`
+                      : `bg-white text-slate-700 border-2 ${colors.unselected} hover:scale-105`
+                  }`}
+                >
+                  <span className="text-sm">{categoryEmojis[category]}</span>
+                  <span>{categoryNames[category]}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -429,7 +528,15 @@ export default function SegmentedLeaderboard({ data, region = 'domestic', countr
                           </span>
                         )}
                       </div>
-                      <h3 className="text-slate-900 font-medium">{item.name}</h3>
+                      <h3 className="text-slate-900 font-medium">
+                        {item.name}
+                        {(() => {
+                          const translated = translateKeyword(item.name);
+                          return translated !== item.name ? (
+                            <span className="text-slate-500 text-xs font-normal ml-1">({translated})</span>
+                          ) : null;
+                        })()}
+                      </h3>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">

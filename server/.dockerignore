@@ -1,0 +1,8 @@
+node_modules
+.env
+.env.*
+*.py
+*.sh
+vector_db/
+scripts/
+__pycache__/

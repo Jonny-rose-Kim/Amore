@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { singleKeywordData, reportResults, ReportResult, snsTopIngredients, trendMetrics, TrendMetric, Country, countryThemes, BubbleItem, TrendItem, generateReport } from '../data/mockData';
+import { singleKeywordData, reportResults, ReportResult, snsTopIngredients, Country, countryThemes, BubbleItem, TrendItem, generateReport } from '../data/mockData';
 import { getSNSTopKeywordsByCountry } from '../data/leaderboardData';
 import { getCountryTrendData as getCountryData, getCountryBubbleData as getCountryBubble } from '../data/countryData';
 import TrendCard from './TrendCard';
@@ -9,13 +9,15 @@ import SegmentedLeaderboard from './SegmentedLeaderboard';
 import ReportModal from './ReportModal';
 import ReportViewModal from './ReportViewModal';
 import SNSTopChart from './SNSTopChart';
-import TrendMetrics from './TrendMetrics';
+// TrendMetrics removed - TrendEvidenceChart moved to InsightPanel
 import InfoTooltip from './InfoTooltip';
 import ReviewKeywordsPanel from './ReviewKeywordsPanel';
 import OverseasProductList, { OverseasProduct } from './OverseasProductList';
 import DomesticProductList, { DomesticProduct } from './DomesticProductList';
 import ProductComparison from './ProductComparison';
-import { overseasProducts, domesticProducts } from '../data/productData';
+import { fetchWhitespaceProducts, fetchCombinationLeaderboard, CombinationLeaderboardItem, fetchRAGInsight } from '../services/api';
+import WhitespaceGapAnalysis from './WhitespaceGapAnalysis';
+import ChatBot from './ChatBot';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, Loader2, Sparkles } from 'lucide-react';
 
@@ -27,7 +29,7 @@ export default function TrendInsightDashboard() {
   const [activeTab, setActiveTab] = useState<TabType>('combination');
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [selectedInsight, setSelectedInsight] = useState<string | null>(null);
-  const [selectedTrendMetrics, setSelectedTrendMetrics] = useState<TrendMetric[] | null>(null);
+  const [selectedTrendMetrics, setSelectedTrendMetrics] = useState<any[] | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [reportResult, setReportResult] = useState<ReportResult | null>(null);
@@ -41,12 +43,83 @@ export default function TrendInsightDashboard() {
   
   // WhiteSpace 모드 관련 상태
   const [isWhiteSpaceMode, setIsWhiteSpaceMode] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<MainCategory | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<MainCategory | null>('Skincare');
   const [selectedOverseasProduct, setSelectedOverseasProduct] = useState<OverseasProduct | null>(null);
   const [selectedDomesticProduct, setSelectedDomesticProduct] = useState<DomesticProduct | null>(null);
   const [showComparisonDialog, setShowComparisonDialog] = useState(false);
   const [pendingOverseasProduct, setPendingOverseasProduct] = useState<OverseasProduct | null>(null);
   const [pendingDomesticProduct, setPendingDomesticProduct] = useState<DomesticProduct | null>(null);
+  const [wsOverseasProducts, setWsOverseasProducts] = useState<OverseasProduct[]>([]);
+  const [wsKoreanProducts, setWsKoreanProducts] = useState<DomesticProduct[]>([]);
+
+  // Combination tab: real DB data
+  const [combinationData, setCombinationData] = useState<TrendItem[]>([]);
+  const [isCombinationLoading, setIsCombinationLoading] = useState(false);
+  const [combinationComponentKeywords, setCombinationComponentKeywords] = useState<string[]>([]);
+
+  // Fetch WhiteSpace products from DB when category or country changes
+  useEffect(() => {
+    if (isWhiteSpaceMode && selectedCategory) {
+      fetchWhitespaceProducts(country, selectedCategory).then(data => {
+        setWsOverseasProducts((data.overseas || []).map((p: any, i: number) => ({
+          id: `ws-ov-${i}`,
+          name: p.name,
+          brand: p.brand,
+          category: selectedCategory,
+          image: p.imageUrl,
+          price: p.price,
+          rating: p.rating,
+          reviewCount: p.reviewCount,
+        })));
+        setWsKoreanProducts((data.korean || []).map((p: any, i: number) => ({
+          id: `ws-kr-${i}`,
+          name: p.name,
+          brand: p.brand,
+          category: selectedCategory,
+          image: p.imageUrl,
+          price: p.price,
+          rating: p.rating,
+          reviewCount: p.reviewCount,
+        })));
+      });
+    }
+  }, [isWhiteSpaceMode, selectedCategory, country]);
+
+  // Fetch combination leaderboard from API
+  useEffect(() => {
+    if (activeTab === 'combination' && !isWhiteSpaceMode) {
+      setIsCombinationLoading(true);
+      fetchCombinationLeaderboard(country, selectedCategory || 'Skincare').then(items => {
+        const trendItems: TrendItem[] = items.map((item: CombinationLeaderboardItem, idx: number) => {
+          const statusMap: Record<string, TrendItem['status']> = {
+            'Actionable': '🚀 Actionable Trend',
+            'Growing': '📈 Growing Trend',
+            'Early': '🌱 Early Trend',
+          };
+          return {
+            rank: idx + 1,
+            category: item.mainCategory || selectedCategory || 'Skincare',
+            combination: item.combination,
+            status: statusMap[item.category] || '📈 Growing Trend',
+            signals: [
+              { type: 'SNS' as const, data: [{ name: 'SNS', value: item.signals?.SNS || 0 }] },
+              { type: 'Retail' as const, data: [{ name: 'Retail', value: item.signals?.Retail || 0 }] },
+              { type: 'Review' as const, data: [{ name: 'Review', value: item.signals?.Review || 0 }] },
+            ],
+            insightText: `${item.combination} 조합 (Score: ${item.score})`,
+            ingredients: item.ingredients,
+            formulas: item.formulas,
+            effects: item.effects,
+            moods: item.moods,
+          };
+        });
+        setCombinationData(trendItems);
+        setIsCombinationLoading(false);
+      }).catch(() => {
+        setIsCombinationLoading(false);
+      });
+    }
+  }, [activeTab, country, selectedCategory, isWhiteSpaceMode]);
 
   // 드롭다운 외부 클릭 시 닫기
   useEffect(() => {
@@ -71,7 +144,7 @@ export default function TrendInsightDashboard() {
   // 국가별 데이터 가져오기
   const currentTrendData = getCountryData(country);
   const currentBubbleData = getCountryBubble(country);
-  const currentData = activeTab === 'single' ? singleKeywordData : currentTrendData;
+  const currentData = activeTab === 'single' ? singleKeywordData : (combinationData.length > 0 ? combinationData : currentTrendData);
 
   // 카테고리 이름 매핑
   const categoryNames: Record<MainCategory, string> = {
@@ -150,17 +223,49 @@ export default function TrendInsightDashboard() {
     }
   };
 
-  const handleReportSelect = (type: 'marketing' | 'npd' | 'overseas') => {
-    // 로딩 시작
+  const handleReportSelect = async (scope: 'keyword' | 'category', type: 'marketing' | 'npd' | 'overseas') => {
     setIsGeneratingInsight(true);
-    
-    // 시뮬레이션: 약간의 딜레이 후 결과 표시
-    setTimeout(() => {
+
+    try {
+      // 키워드 결정
+      const keywordForInsight = scope === 'keyword'
+        ? (selectedBubbleItem?.name || selectedTrendItem?.combination || '')
+        : '';
+
+      // 상위 키워드 수집
+      const topKeywords = currentData.slice(0, 10).map(item => ({
+        keyword: item.combination || '',
+        score: 0,
+        trendLevel: typeof item.status === 'string' ? item.status : '',
+      }));
+
+      const result = await fetchRAGInsight({
+        scope,
+        type,
+        keyword: keywordForInsight,
+        category: selectedCategory || 'Skincare',
+        country,
+        topKeywords,
+      });
+
+      if (result.success && result.content) {
+        setReportResult({ type, content: result.content, sources: result.ragSources });
+        setIsGeneratingInsight(false);
+        setIsReportModalOpen(true);
+      } else {
+        // LLM 실패 시 mock 데이터 폴백
+        const report = generateReport(type, selectedBubbleItem, country);
+        setReportResult(report);
+        setIsGeneratingInsight(false);
+        setIsReportModalOpen(true);
+      }
+    } catch {
+      // 에러 시 mock 폴백
       const report = generateReport(type, selectedBubbleItem, country);
       setReportResult(report);
       setIsGeneratingInsight(false);
       setIsReportModalOpen(true);
-    }, 2000);
+    }
   };
 
   // 국가별 배경 색상 (화장품 회사 스타일 - 부드러운 파스텔 톤)
@@ -217,21 +322,26 @@ export default function TrendInsightDashboard() {
         >
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-3">
-              <img 
-                src="/images/amore_clue.jpg" 
-                alt="AMORE CLUE Logo" 
-                className="w-12 h-12 object-contain rounded-lg"
+              <img
+                src="/images/amore_clue.png"
+                alt="AMORE CLUE Logo"
+                className="w-20 h-20 object-contain rounded-xl"
               />
               <div>
-                <h1 className={`text-3xl font-bold mb-1 bg-clip-text text-transparent transition-all duration-500 flex items-center gap-2 ${
-                  isOverseas 
-                    ? `bg-gradient-to-r ${theme.gradient}` 
-                    : 'bg-gradient-to-r from-rose-500 via-pink-500 to-rose-600'
-                }`}>
-                  <span>✨</span>
-                  <span>AMORE CLUE</span>
-                  <span>✨</span>
-                </h1>
+                <div className="flex items-center gap-3">
+                  <h1 className={`text-3xl font-bold mb-1 bg-clip-text text-transparent transition-all duration-500 flex items-center gap-2 ${
+                    isOverseas
+                      ? `bg-gradient-to-r ${theme.gradient}`
+                      : 'bg-gradient-to-r from-rose-500 via-pink-500 to-rose-600'
+                  }`}>
+                    <span>✨</span>
+                    <span>AMORE CLUE</span>
+                    <span>✨</span>
+                  </h1>
+                  <span className="text-xs text-slate-500 bg-slate-100 border border-slate-200 px-2 py-1 rounded-md font-medium">
+                    Updated: {new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })} (Daily)
+                  </span>
+                </div>
                 <p className="text-sm text-slate-600">
                   화장품 산업 트렌드 분석 대시보드
                 </p>
@@ -297,7 +407,6 @@ export default function TrendInsightDashboard() {
                     setSelectedInsight(null);
                     setSelectedTrendMetrics(null);
                     setIsWhiteSpaceMode(false);
-                    setSelectedCategory(null);
                   }}
                   className={`px-5 py-2 rounded-lg font-medium transition-all text-sm ${
                     activeTab === 'single' && !isWhiteSpaceMode
@@ -314,7 +423,6 @@ export default function TrendInsightDashboard() {
                     setSelectedInsight(null);
                     setSelectedTrendMetrics(null);
                     setIsWhiteSpaceMode(false);
-                    setSelectedCategory(null);
                   }}
                   className={`px-5 py-2 rounded-lg font-medium transition-all text-sm ${
                     activeTab === 'combination' && !isWhiteSpaceMode
@@ -327,7 +435,6 @@ export default function TrendInsightDashboard() {
                 <button
                   onClick={() => {
                     setIsWhiteSpaceMode(true);
-                    setSelectedCategory(null);
                     setSelectedOverseasProduct(null);
                     setSelectedDomesticProduct(null);
                     setExpandedIndex(null);
@@ -340,52 +447,78 @@ export default function TrendInsightDashboard() {
                       : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300'
                   }`}
                 >
-                  ⬜ WhiteSpace
+                  🔄 WhiteSpace 비교
                 </button>
               </div>
 
-              {/* WhiteSpace 모드: 카테고리 버튼 */}
-              {isWhiteSpaceMode && (
-                <div className="mb-6 flex-shrink-0">
-                  <div className="flex flex-wrap gap-4">
-                    {mainCategories.map((category) => (
-                      <button
-                        key={category}
-                        onClick={() => {
-                          setSelectedCategory(category);
-                          setSelectedOverseasProduct(null);
-                          setSelectedDomesticProduct(null);
-                        }}
-                        className={`px-8 py-4 rounded-xl font-bold text-lg transition-all ${
-                          selectedCategory === category
-                            ? `bg-gradient-to-r ${theme.gradient} text-white shadow-lg scale-105`
-                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border-2 border-slate-300 hover:scale-105'
-                        }`}
-                      >
-                        {categoryNames[category]}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               {/* 메인 콘텐츠 영역 */}
               {isWhiteSpaceMode ? (
-                selectedCategory ? (
+                <>
+                {/* WhiteSpace 모드에서만 카테고리 버튼 표시 */}
+                <div className="mb-4 flex-shrink-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-sm text-slate-900 font-medium">대분류 카테고리:</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {mainCategories.map((category) => {
+                      const categoryEmojis: Record<MainCategory, string> = {
+                        'Skincare': '🧴',
+                        'Cleansing': '🫧',
+                        'Sun Care': '☀️',
+                        'Makeup': '💄',
+                        'Hair Care': '💇‍♀️',
+                        'Body Care': '🛁',
+                        'Mens Care': '👨',
+                      };
+                      const categoryColors: Record<MainCategory, { selected: string; unselected: string }> = {
+                        'Skincare': { selected: 'from-pink-500 to-rose-500', unselected: 'border-pink-300 hover:bg-pink-50' },
+                        'Cleansing': { selected: 'from-sky-500 to-cyan-500', unselected: 'border-sky-300 hover:bg-sky-50' },
+                        'Sun Care': { selected: 'from-amber-500 to-yellow-500', unselected: 'border-amber-300 hover:bg-amber-50' },
+                        'Makeup': { selected: 'from-fuchsia-500 to-pink-500', unselected: 'border-fuchsia-300 hover:bg-fuchsia-50' },
+                        'Hair Care': { selected: 'from-violet-500 to-purple-500', unselected: 'border-violet-300 hover:bg-violet-50' },
+                        'Body Care': { selected: 'from-emerald-500 to-teal-500', unselected: 'border-emerald-300 hover:bg-emerald-50' },
+                        'Mens Care': { selected: 'from-indigo-500 to-blue-500', unselected: 'border-indigo-300 hover:bg-indigo-50' },
+                      };
+                      const colors = categoryColors[category];
+                      return (
+                        <button
+                          key={category}
+                          onClick={() => {
+                            setSelectedCategory(category);
+                            setSelectedOverseasProduct(null);
+                            setSelectedDomesticProduct(null);
+                          }}
+                          className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all flex items-center gap-1 ${
+                            (selectedCategory || 'Skincare') === category
+                              ? `bg-gradient-to-r ${colors.selected} text-white shadow-md scale-105`
+                              : `bg-white text-slate-700 border-2 ${colors.unselected} hover:scale-105`
+                          }`}
+                        >
+                          <span className="text-sm">{categoryEmojis[category]}</span>
+                          <span>{categoryNames[category]}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                {selectedCategory ? (
+                  <>
                   <div className="grid grid-cols-12 gap-4">
-                    {/* 해외 인기 제품 리스트 (3/12) */}
+                    {/* 해당 국가 인기 제품 리스트 (3/12) */}
                     <div className="col-span-3 flex flex-col min-w-0">
                       <OverseasProductList
-                        products={overseasProducts[selectedCategory] || []}
+                        products={wsOverseasProducts}
                         selectedProduct={selectedOverseasProduct}
                         onSelectProduct={handleOverseasProductSelect}
+                        country={country}
                       />
                     </div>
 
                     {/* 한국 인기 제품 리스트 (3/12) */}
                     <div className="col-span-3 flex flex-col min-w-0">
                       <DomesticProductList
-                        products={domesticProducts[selectedCategory] || []}
+                        products={wsKoreanProducts}
                         selectedProduct={selectedDomesticProduct}
                         onSelectProduct={handleDomesticProductSelect}
                       />
@@ -396,9 +529,19 @@ export default function TrendInsightDashboard() {
                       <ProductComparison
                         overseasProduct={selectedOverseasProduct}
                         domesticProduct={selectedDomesticProduct}
+                        country={country}
                       />
                     </div>
                   </div>
+
+                  {/* WhiteSpace 기회 분석 */}
+                  <WhitespaceGapAnalysis
+                    country={country}
+                    category={selectedCategory}
+                    overseasProducts={wsOverseasProducts.map(p => ({ name: p.name, brand: p.brand, price: p.price || '', rating: p.rating || 0 }))}
+                    koreanProducts={wsKoreanProducts.map(p => ({ name: p.name, brand: p.brand, price: p.price || '', rating: p.rating || 0 }))}
+                  />
+                  </>
                 ) : (
                   <div className="flex items-center justify-center h-full">
                     <div className="text-center">
@@ -406,24 +549,30 @@ export default function TrendInsightDashboard() {
                       <p className="text-slate-400 text-sm">위의 카테고리 버튼 중 하나를 선택하면 제품 리스트가 표시됩니다.</p>
                     </div>
                   </div>
-                )
+                )}
+                </>
               ) : (
               <div className="grid grid-cols-12 gap-4">
                 {/* 리더보드 (5/12) */}
                 <div className="col-span-5 flex flex-col min-w-0">
                   {activeTab === 'single' ? (
-                    <SegmentedLeaderboard 
-                      data={currentBubbleData} 
+                    <SegmentedLeaderboard
+                      data={currentBubbleData}
                       region={country === 'domestic' ? 'domestic' : 'overseas'}
                       country={country}
                       onSelectItem={(item, rank, type) => {
                         setSelectedBubbleItem(item);
                         setSelectedBubbleItemRank(rank);
                         setSelectedBubbleItemType(type);
-                        setSelectedTrendItem(null); // 꿀조합에서 리더보드 항목 클릭 시 꿀조합 선택 해제
+                        setSelectedTrendItem(null);
                         setExpandedIndex(null);
                         setSelectedInsight(null);
                         setSelectedTrendMetrics(null);
+                      }}
+                      onCategoryChange={(cat) => {
+                        setSelectedCategory(cat);
+                        setSelectedOverseasProduct(null);
+                        setSelectedDomesticProduct(null);
                       }}
                     />
                   ) : (
@@ -444,8 +593,56 @@ export default function TrendInsightDashboard() {
                           ]}
                         />
                       </div>
+                      {/* 대분류 카테고리 선택 */}
+                      <div className="mb-3 flex-shrink-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-sm text-slate-900 font-medium">대분류 카테고리:</span>
+                        </div>
+                        <div className="flex gap-2 flex-wrap">
+                          {mainCategories.map((category) => {
+                            const categoryEmojis: Record<MainCategory, string> = {
+                              'Skincare': '🧴',
+                              'Cleansing': '🫧',
+                              'Sun Care': '☀️',
+                              'Makeup': '💄',
+                              'Hair Care': '💇‍♀️',
+                              'Body Care': '🛁',
+                              'Mens Care': '👨',
+                            };
+                            const categoryColors: Record<MainCategory, { selected: string; unselected: string }> = {
+                              'Skincare': { selected: 'from-pink-500 to-rose-500', unselected: 'border-pink-300 hover:bg-pink-50' },
+                              'Cleansing': { selected: 'from-sky-500 to-cyan-500', unselected: 'border-sky-300 hover:bg-sky-50' },
+                              'Sun Care': { selected: 'from-amber-500 to-yellow-500', unselected: 'border-amber-300 hover:bg-amber-50' },
+                              'Makeup': { selected: 'from-fuchsia-500 to-pink-500', unselected: 'border-fuchsia-300 hover:bg-fuchsia-50' },
+                              'Hair Care': { selected: 'from-violet-500 to-purple-500', unselected: 'border-violet-300 hover:bg-violet-50' },
+                              'Body Care': { selected: 'from-emerald-500 to-teal-500', unselected: 'border-emerald-300 hover:bg-emerald-50' },
+                              'Mens Care': { selected: 'from-indigo-500 to-blue-500', unselected: 'border-indigo-300 hover:bg-indigo-50' },
+                            };
+                            const colors = categoryColors[category];
+                            return (
+                              <button
+                                key={category}
+                                onClick={() => setSelectedCategory(category)}
+                                className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all flex items-center gap-1 ${
+                                  (selectedCategory || 'Skincare') === category
+                                    ? `bg-gradient-to-r ${colors.selected} text-white shadow-md scale-105`
+                                    : `bg-white text-slate-700 border-2 ${colors.unselected} hover:scale-105`
+                                }`}
+                              >
+                                <span className="text-sm">{categoryEmojis[category]}</span>
+                                <span>{categoryNames[category]}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
                       <div className="space-y-0">
-                        {currentData.map((item, index) => (
+                        {isCombinationLoading ? (
+                          <div className="flex items-center justify-center py-8">
+                            <Loader2 className="w-6 h-6 text-slate-400 animate-spin" />
+                            <span className="ml-2 text-sm text-slate-500">로딩 중...</span>
+                          </div>
+                        ) : currentData.map((item, index) => (
                           <TrendCard
                             key={`${activeTab}-${item.rank}`}
                             item={item}
@@ -454,11 +651,23 @@ export default function TrendInsightDashboard() {
                               // 드롭다운 제거로 인해 onToggle은 사용하지 않음
                             }}
                             onClick={() => {
-                              setSelectedTrendItem(item);
                               setSelectedBubbleItem(null);
                               setSelectedBubbleItemRank(undefined);
                               setSelectedBubbleItemType(undefined);
-                              setExpandedIndex(null); // 확장 상태 초기화
+                              setExpandedIndex(null);
+                              setSelectedTrendItem(item);
+
+                              // Extract component keywords from item arrays or parse from combination string
+                              let componentKws = [
+                                ...(item.ingredients || []),
+                                ...(item.formulas || []),
+                                ...(item.effects || []),
+                                ...(item.moods || []),
+                              ];
+                              if (componentKws.length === 0 && item.combination) {
+                                componentKws = item.combination.split('+').map(s => s.trim()).filter(Boolean);
+                              }
+                              setCombinationComponentKeywords(componentKws);
                             }}
                           />
                         ))}
@@ -473,36 +682,23 @@ export default function TrendInsightDashboard() {
                     keywords={selectedBubbleItem?.reviewKeywords || selectedTrendItem?.reviewKeywords || null}
                     itemName={selectedBubbleItem?.name || selectedTrendItem?.combination || ''}
                     isCombination={!!selectedTrendItem}
+                    country={country}
+                    componentKeywords={combinationComponentKeywords}
                   />
                 </div>
 
-                {/* SNS Top Chart & Metrics (4/12) */}
+                {/* Retail/SNS Top Chart & Metrics (4/12) */}
                 <div className="col-span-4 flex flex-col gap-3 min-w-0">
                   <div className="flex-shrink-0">
                     <div className="flex items-center gap-2 mb-2">
-                      <h3 className="text-base font-semibold text-slate-800">SNS 플랫폼별 Top 성분, 제형, 효과</h3>
+                      <h3 className="text-base font-semibold text-slate-800">Retail/SNS Top 키워드</h3>
                       <InfoTooltip
-                        title="SNS 차트 가이드"
-                        description="국가별 주요 SNS 플랫폼에서 인기 키워드(성분, 제형, 효과) Top 5를 보여줍니다."
+                        title="Retail/SNS 차트 가이드"
+                        description="국가별 주요 SNS·리테일 플랫폼에서 인기 키워드(성분, 제형, 효과) Top 5를 보여줍니다."
                         usage="플랫폼별 타겟 고객층 파악 / 채널별 마케팅 전략 수립 / 키워드별 SNS 트렌드 비교"
                       />
                     </div>
-                    <SNSTopChart data={getSNSTopKeywordsByCountry(country)} country={country} />
-                  </div>
-                  <div className="flex flex-col border-t border-slate-200 pt-3">
-                    <div className="flex items-center gap-2 mb-2 flex-shrink-0">
-                      <h3 className="text-base font-semibold text-slate-800">
-                        {selectedTrendMetrics ? '선택한 트렌드 지표' : '전체 시장 지표'}
-                      </h3>
-                      <InfoTooltip
-                        title="트렌드 지표 가이드"
-                        description="트렌드를 선택하면 해당 트렌드의 상세 지표가 표시됩니다. 선택하지 않으면 전체 시장 지표가 표시됩니다."
-                        usage="트렌드 클릭: 해당 트렌드 지표 확인 / 미선택: 전체 시장 동향 파악"
-                      />
-                    </div>
-                    <div>
-                      <TrendMetrics metrics={selectedTrendMetrics || trendMetrics} />
-                    </div>
+                    <SNSTopChart data={getSNSTopKeywordsByCountry(country)} country={country} category={selectedCategory || 'Skincare'} />
                   </div>
                 </div>
               </div>
@@ -519,6 +715,8 @@ export default function TrendInsightDashboard() {
                 selectedTrendItem={selectedTrendItem}
                 selectedBubbleItemRank={selectedBubbleItemRank}
                 selectedBubbleItemType={selectedBubbleItemType}
+                country={country}
+                category={selectedCategory || 'Skincare'}
                 onOpenModal={() => setIsModalOpen(true)}
               />
             </div>
@@ -573,6 +771,9 @@ export default function TrendInsightDashboard() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSelect={handleReportSelect}
+        hasKeywordSelected={!!(selectedBubbleItem || selectedTrendItem)}
+        selectedKeyword={selectedBubbleItem?.name || selectedTrendItem?.combination || ''}
+        currentCategory={selectedCategory || 'Skincare'}
       />
       
       {/* AI 인사이트 생성 중 로딩 모달 */}
@@ -627,6 +828,9 @@ export default function TrendInsightDashboard() {
         onClose={() => setIsReportModalOpen(false)}
         reportResult={reportResult}
       />
+
+      {/* AI 챗봇 */}
+      <ChatBot />
     </div>
   );
 }

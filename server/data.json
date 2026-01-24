@@ -1,0 +1,134 @@
+{
+    "beauty_keywords_taxonomy": [
+      {
+        "category": "1. 스킨케어 (Skincare)",
+        "ingredients": [
+          "Hyaluronic acid", "Niacinamide", "Retinol / Retinal", "Peptides", 
+          "Ceramides", "Centella asiatica / Cica", "Probiotics / Microbiome", 
+          "AHA / BHA / PHA", "Vitamin C", "Panthenol", "Madecassoside"
+        ],
+        "formulation": [
+          "Essence", "Toner", "Ampoule", "Serum", "Gel cream", 
+          "Lightweight cream", "Balm", "Mist", "Sheet mask"
+        ],
+        "effects": [
+          "Moisturizing / Hydrating", "Whitening / Brightening", "Soothing / Calming", 
+          "Anti-aging", "Firming / Lifting", "Acne care / Pore care", 
+          "Barrier repair", "Exfoliating"
+        ],
+        "visual_mood": [
+          "Dermatology vibe", "Clinical", "Aesthetic / Shelfie", "Clean / White tone", 
+          "Spatula / Scoop", "Hygiene design", "Pump / Airless container", "Clean / Calm mood"
+        ]
+      },
+      {
+        "category": "2. 클렌징 (Cleansing)",
+        "ingredients": [
+          "AHA / BHA / PHA", "Amino acids", "Salicylic acid", "Tea tree oil", 
+          "Plant-based oils (Jojoba, Argan)", "Micellar water"
+        ],
+        "formulation": [
+          "Cleansing oil", "Cleansing balm", "Cleansing foam", "Cleansing water", 
+          "Gel-to-foam", "Milk cleanser", "Powder wash"
+        ],
+        "effects": [
+          "Deep cleansing", "Makeup removal", "Pore care / Blackhead removal", 
+          "Low pH", "Soothing / Calming", "Fragrance-free"
+        ],
+        "visual_mood": [
+          "Satisfying", "Stringy / Slime", "Transparent / Clear package", 
+          "Refillable structure", "Hygiene design (ex. 깎아쓰는 밤)", "Clean / Calm mood"
+        ]
+      },
+      {
+        "category": "3. 선케어 (Suncare)",
+        "ingredients": [
+          "Zinc oxide", "Titanidm dioxide", "Ethylhexyl methoxycinnamate", 
+          "Niacinamide", "Vitamin E"
+        ],
+        "formulation": [
+          "Sun cream", "Sun milk", "Sun stick", "Sun gel", "Sun spray", "Tone-up cream"
+        ],
+        "effects": [
+          "UV protection / SPF", "PA++++", "Non-greasy", "No white cast", 
+          "Water-resistant", "Reef-friendly", "Tone-up", "Blue light protection"
+        ],
+        "visual_mood": [
+          "Daily-friendly", "Miniature / Pocket-sized", "Grip / Ergonomic", 
+          "Matte texture", "Mini / Travel size"
+        ]
+      },
+      {
+        "category": "4. 메이크업 (Makeup)",
+        "ingredients": [
+          "Hyaluronic acid", "Silica", "Collagen", "Pearl extract"
+        ],
+        "formulation": [
+          "Cushion foundation", "Liquid foundation", "Lip tint / Lip stain", 
+          "Stick-type (foundation, blush)", "Loose powder", "Setting spray", "Velvet/Matte texture"
+        ],
+        "effects": [
+          "Long-lasting makeup", "Full coverage", "Dewy finish / Glow", 
+          "Matte finish", "Smudge-proof", "Tone-up", "Color correcting"
+        ],
+        "visual_mood": [
+          "Tanghulu / Glassy", "Y2K / Silver", "Keyring / Charm", 
+          "Bag Pendant / Bag Accessory", "Character collaboration package", 
+          "Egg Shape / Pebble", "Customizable / DIY"
+        ]
+      },
+      {
+        "category": "5. 헤어케어 (Haircare)",
+        "ingredients": [
+          "Biotin", "Caffeine", "Keratin", "Argan oil", "Salicylic acid", 
+          "Panthenol", "Zinc pyrithione"
+        ],
+        "formulation": [
+          "Shampoo", "Conditioner", "Hair mask / Treatment", "Hair oil", 
+          "Hair serum", "Scalp tonic", "Water treatment"
+        ],
+        "effects": [
+          "Anti-hair loss", "Damage repair", "Scalp care / Dandruff care", 
+          "Volumizing", "Moisturizing", "Frizz control"
+        ],
+        "visual_mood": [
+          "Pump / Airless container", "Refillable / Eco-luxe", 
+          "Gender-neutral", "Clean / Calm mood"
+        ]
+      },
+      {
+        "category": "6. 바디케어 (Bodycare)",
+        "ingredients": [
+          "Shea butter", "Ceramides", "Urea", "Glycerin", "Niacinamide", "Glycolic acid"
+        ],
+        "formulation": [
+          "Body lotion", "Body cream", "Body butter", "Body oil", "Body mist", "Body scrub"
+        ],
+        "effects": [
+          "Deep moisturizing", "Barrier repair", "Exfoliating", "Soothing", 
+          "Fragrance-led", "Firming"
+        ],
+        "visual_mood": [
+          "Luxury", "Aesthetic / Shelfie", "Egg Shape / Pebble", 
+          "Refillable structure", "Clean / Calm mood"
+        ]
+      },
+      {
+        "category": "7. 맨즈케어 (Menscare)",
+        "ingredients": [
+          "Centella asiatica / Cica", "Niacinamide", "Salicylic acid", "Charcoal", "Allantoin"
+        ],
+        "formulation": [
+          "All-in-one essence", "Gel-type moisturizer", "Aftershave", "Sun stick", "BB cream for men"
+        ],
+        "effects": [
+          "Oil control / Sebum control", "Soothing / Calming (after shaving)", 
+          "Pore care", "Simple routine", "Non-sticky", "Natural coverage"
+        ],
+        "visual_mood": [
+          "Minimal design", "Matte texture", "Gender-neutral", 
+          "Daily-friendly", "Grip / Ergonomic"
+        ]
+      }
+    ]
+  }
