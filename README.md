@@ -19,6 +19,107 @@
 
 ---
 
+## 🎯 System Architecture Overview
+
+<p align="center">
+  <strong>Two-Track Multi-Agent AI System with Advanced RAG Pipeline</strong>
+</p>
+
+```mermaid
+flowchart TB
+    subgraph INPUT["🌐 Data Sources"]
+        direction LR
+        RETAIL[("🛒 Retail\n(Amazon, Olive Young)")]
+        SNS[("📱 SNS\n(TikTok, Instagram)")]
+        REVIEW[("⭐ Reviews\n(User Feedback)")]
+    end
+
+    subgraph TRACK1["📊 Track 1: Automated Data Pipeline (Daily Batch)"]
+        direction LR
+        CRAWL["🕷️ Multi-Source\nCrawler"]
+        EXTRACT["🔍 LLM Keyword\nExtractor\n(EXAONE)"]
+        CLASSIFY["📈 Multi-Signal\nTrend Classifier"]
+
+        CRAWL -->|Raw Data| EXTRACT
+        EXTRACT -->|Structured| CLASSIFY
+    end
+
+    subgraph STORAGE["💾 Data Storage Layer"]
+        direction LR
+        MONGO[("🍃 MongoDB\n(Structured Data)")]
+        VECTOR[("🔮 Vector DB\n(RAG Embeddings)")]
+        CACHE[("⚡ Cache\n(Session/Memory)")]
+    end
+
+    subgraph TRACK2["🤖 Track 2: Real-time AI Analysis Engine"]
+        direction TB
+
+        subgraph ROUTER["🎛️ Intelligent Router"]
+            QUERY["User Query"] --> ADAPTIVE{"Adaptive\nRouter"}
+        end
+
+        subgraph AGENTS["🧠 Specialized AI Agents (Multi-GPU)"]
+            direction LR
+            subgraph GPU5["GPU:5 (Port 5005)"]
+                A1["📝 Review Summary\n+ Parent-Doc RAG"]
+                A2["📊 SNS Analysis\n+ Self-RAG"]
+                A3["❓ Keyword Why\n+ Multi-Query RAG"]
+            end
+            subgraph GPU6["GPU:6 (Port 5006)"]
+                A4["🎯 Category Strategy\n+ HyDE RAG"]
+                A5["🔲 Whitespace\n+ Agentic RAG"]
+            end
+            subgraph GPU7["GPU:7 (Port 5007)"]
+                A6["💬 AI Chatbot\n+ Memory RAG"]
+                A7["🔮 RAG Insight\n+ CRAG"]
+                A8["📈 Trend Prediction\n+ Self-RAG"]
+            end
+        end
+
+        subgraph REFLECTION["🔄 Quality Assurance"]
+            REFLECT{"Self-Reflection\n& Validation"}
+            REGEN["Re-generate\nif needed"]
+        end
+
+        ADAPTIVE -->|Route| GPU5 & GPU6 & GPU7
+        GPU5 & GPU6 & GPU7 --> REFLECT
+        REFLECT -->|"❌ Fail"| REGEN --> ADAPTIVE
+        REFLECT -->|"✅ Pass"| OUTPUT
+    end
+
+    subgraph OUTPUT["📤 Output"]
+        RESPONSE["🎁 AI-Powered\nInsights & Strategy"]
+    end
+
+    INPUT --> TRACK1
+    TRACK1 --> STORAGE
+    STORAGE <--> TRACK2
+    TRACK2 --> OUTPUT
+
+    style TRACK1 fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style TRACK2 fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    style STORAGE fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style INPUT fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style OUTPUT fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+```
+
+### 🔬 RAG Technology Mapping
+
+| Track | Feature | RAG Technique | Description |
+|:-----:|---------|:-------------:|-------------|
+| **Track 1** | Data Extraction | **LLM-based NER** | 제품명, 성분, 효능 키워드 자동 추출 |
+| **Track 1** | Trend Classification | **Multi-Signal Fusion** | SNS + Retail + Review 신호 통합 분류 |
+| **Track 2** | Review Summary | **Parent-Document RAG** | 개별 리뷰 검색 → 전체 문서 컨텍스트 활용 |
+| **Track 2** | SNS Analysis | **Self-RAG** | 생성 결과 자체 평가 및 재생성 |
+| **Track 2** | Keyword Why | **Multi-Query RAG** | 쿼리를 4방향 분해 후 RRF 통합 |
+| **Track 2** | Category Strategy | **HyDE** | 가상 문서 생성 → 유사 전략 검색 |
+| **Track 2** | Whitespace | **Agentic RAG** | 다단계 추론 기반 시장 기회 탐색 |
+| **Track 2** | RAG Insight | **CRAG** | 검색 품질 평가 → 외부 소스 보정 |
+| **Track 2** | AI Chatbot | **Memory RAG** | 대화 이력 기반 컨텍스트 유지 |
+| **Track 2** | Trend Prediction | **Adaptive RAG** | 쿼리 복잡도 기반 전략 동적 선택 |
+
+---
+
 ## Overview
 
 AMORE CLUE는 글로벌 뷰티 시장의 트렌드를 **수집 - 분석 - 예측**하는 Two-Track Multi-Agent AI 시스템입니다.
@@ -157,22 +258,25 @@ graph TB
 
 ### GPU Distribution & Features
 
-4개 GPU에 분산 배치된 AI Agent들:
+3개 GPU에 분산 배치된 AI Agent들 (EXAONE-3.5-7.8B-Instruct):
 
 ```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                        GPU Cluster (4x GPUs)                             │
-├─────────────────┬─────────────────┬─────────────────┬────────────────────┤
-│  GPU 0 (:5001)  │  GPU 1 (:5002)  │  GPU 2 (:5003)  │  GPU 3 (:5004)    │
-│  EXAONE-3.5-7.8B│  EXAONE-3.5-7.8B│  EXAONE-3.5-7.8B│  Qwen2-VL-2B     │
-├─────────────────┼─────────────────┼─────────────────┼────────────────────┤
-│ • Review Summary│ • PLC Prediction│ • Country       │ • Multimodal Chat  │
-│ • SNS Analysis  │ • Category      │   Strategy      │ • Image Analysis   │
-│ • Keyword Why   │   Prediction    │ • Category      │ • Visual Q&A       │
-│ • Category Trend│ • Whitespace    │   Strategy      │                    │
-│ • RAG Insight   │   Product       │ • Whitespace    │                    │
-│                 │                 │   Category      │                    │
-└─────────────────┴─────────────────┴─────────────────┴────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         GPU Cluster (3x A6000 GPUs)                         │
+├─────────────────────────┬─────────────────────────┬─────────────────────────┤
+│   GPU 5 (Port 5005)     │   GPU 6 (Port 5006)     │   GPU 7 (Port 5007)     │
+│   EXAONE-3.5-7.8B       │   EXAONE-3.5-7.8B       │   EXAONE-3.5-7.8B       │
+│   ~17GB VRAM            │   ~17GB VRAM            │   ~17GB VRAM            │
+├─────────────────────────┼─────────────────────────┼─────────────────────────┤
+│ • SNS Analysis          │ • Category Strategy     │ • AI Chatbot (RAG)      │
+│   + Self-RAG            │   + HyDE RAG            │   + Memory RAG          │
+│ • Whitespace Product    │ • Whitespace Category   │ • Review Summary        │
+│   + Agentic RAG         │   + Multi-Query RAG     │   + Parent-Doc RAG      │
+│ • Keyword Why           │                         │ • RAG Insight           │
+│   + Multi-Query RAG     │                         │   + CRAG                │
+│                         │                         │ • Category Trend        │
+│                         │                         │ • PLC Prediction        │
+└─────────────────────────┴─────────────────────────┴─────────────────────────┘
 ```
 
 ### Advanced RAG Techniques
@@ -369,14 +473,14 @@ graph LR
 | Frontend | React 18 + TypeScript + Tailwind CSS | Dashboard UI |
 | Build | Vite 5 | Fast HMR & Build |
 | Backend | Node.js + Express | API Gateway & Proxy |
-| AI Orchestration | LangGraph + LangChain | Multi-Agent Workflow |
-| LLM (Text) | EXAONE-3.5-7.8B-Instruct (x3 GPU) | Text Generation |
-| VLM (Vision) | Qwen2-VL-2B-Instruct (GPU3) | Multimodal Analysis |
-| Cloud LLM | Google Gemini 1.5 Pro/Flash | Batch Processing |
-| Vector DB | ChromaDB | Embedding Search |
-| Database | MongoDB Atlas | Persistent Storage |
+| AI Orchestration | Multi-Agent System | GPU-distributed Workflow |
+| LLM | EXAONE-3.5-7.8B-Instruct (x3 GPU) | Text Generation (17GB each) |
+| RAG | Sentence-Transformers + NumPy | 150 Marketing Cases Vector Search |
+| Embedding | paraphrase-multilingual-MiniLM-L12-v2 | 384D Multilingual Embeddings |
+| Database | MongoDB | Persistent Storage |
 | Hosting | Firebase Hosting | Frontend CDN |
 | Tunnel | Cloudflare Tunnel | GPU Server Exposure |
+| GPU | NVIDIA RTX A6000 (x3) | 49GB VRAM each |
 
 ---
 
@@ -385,28 +489,30 @@ graph LR
 ```
 amore_ver2/
 ├── src/                          # Frontend (React + TypeScript)
-│   ├── components/               # 25 React components
-│   ├── services/api.ts           # API client
-│   ├── data/                     # Data utilities
+│   ├── components/               # 25+ React components
+│   │   ├── ChatBot.tsx           # AI 챗봇 (드래그 & 확장 가능)
+│   │   ├── SegmentedLeaderboard.tsx  # 트렌드 리더보드
+│   │   ├── KeywordAIAnalysis.tsx # 키워드 AI 분석
+│   │   ├── TrendInsightDashboard.tsx # RAG 인사이트 대시보드
+│   │   └── ...                   # 기타 컴포넌트
+│   ├── services/api.ts           # API client (LLM 프록시)
+│   ├── data/                     # 데이터 타입 & 유틸리티
 │   └── App.tsx                   # Main application
 │
 ├── server/                       # Backend
-│   ├── index.js                  # Express API gateway
-│   ├── routes/                   # API endpoints (7 route files)
-│   ├── services/                 # Business logic
-│   │   ├── trendClassifier.js    # Multi-signal trend classification
-│   │   ├── batchProcessor.js     # Daily batch pipeline
-│   │   ├── llmAgents.js          # LLM agent orchestration
-│   │   ├── langchain_workflow.py # LangGraph multi-agent workflow
-│   │   └── gemini_agents.py      # Gemini-based agents
-│   ├── scripts/                  # DB seeding & utilities
-│   ├── llm_server.py             # GPU0: Review, SNS, Keyword, RAG
-│   ├── llm_server_gpu1.py        # GPU1: PLC, Category, Whitespace
-│   ├── llm_server_gpu2.py        # GPU2: Strategy, Whitespace Category
-│   ├── llm_server_gpu3.py        # GPU3: VLM Chatbot (Qwen2-VL)
-│   └── Dockerfile                # Cloud Run container
+│   ├── index.js                  # Express API gateway + CORS
+│   ├── routes/                   # API endpoints
+│   │   └── realData.js           # MongoDB 연동 API
+│   ├── rag_data/                 # RAG 임베딩 데이터
+│   │   └── rag_embeddings.json   # 150개 마케팅 사례 벡터
+│   ├── data_for_rag/             # RAG 원본 데이터 (Excel)
+│   ├── scripts/                  # DB & RAG 유틸리티
+│   │   └── build_rag_embeddings.py  # RAG 임베딩 생성기
+│   ├── llm_server_port5.py       # GPU5: SNS, Whitespace, Keyword
+│   ├── llm_server_port6.py       # GPU6: Strategy, Whitespace Category
+│   └── llm_server_port7.py       # GPU7: Chat, Review, RAG Insight
 │
-├── .env.production               # Frontend env (API URL)
+├── .env.production               # Frontend env (Cloudflare Tunnel URL)
 ├── firebase.json                 # Firebase hosting config
 └── package.json                  # Frontend dependencies
 ```
@@ -441,11 +547,13 @@ pip install -r requirements.txt
 # Start API server
 node index.js
 
-# Start GPU LLM servers (4 separate terminals)
-bash start_llm.sh        # GPU 0 - EXAONE (Review, SNS, Keyword, RAG)
-bash start_llm_gpu1.sh   # GPU 1 - EXAONE (PLC, Category, Whitespace)
-bash start_llm_gpu2.sh   # GPU 2 - EXAONE (Strategy)
-bash start_llm_gpu3.sh   # GPU 3 - Qwen2-VL (Chatbot)
+# Start GPU LLM servers (3 separate terminals)
+# Conda environment: amore_clue
+source ~/anaconda3/bin/activate amore_clue
+
+python llm_server_port5.py  # GPU5 - EXAONE (SNS, Whitespace, Keyword)
+python llm_server_port6.py  # GPU6 - EXAONE (Strategy, Whitespace Category)
+python llm_server_port7.py  # GPU7 - EXAONE (Chat, Review, RAG Insight)
 ```
 
 ### 3. Tunnel Setup (for external access)
@@ -469,22 +577,21 @@ PORT=5000
 
 ## API Endpoints
 
-| Method | Endpoint | GPU | Description |
-|--------|----------|-----|-------------|
-| POST | `/api/llm/review-summary` | GPU0 | 리뷰 요약 & 감성 분석 |
-| POST | `/api/llm/sns-analysis` | GPU0 | SNS 트렌드 분석 |
-| POST | `/api/llm/keyword-why` | GPU0 | 키워드 인기 원인 분석 |
-| POST | `/api/llm/category-trend` | GPU0 | 카테고리 트렌드 예측 |
-| POST | `/api/llm/rag-insight` | GPU0 | RAG 기반 심층 인사이트 |
-| POST | `/api/llm/plc-prediction` | GPU1 | 제품 수명주기 예측 |
-| POST | `/api/llm/category-prediction` | GPU1 | 카테고리 성장 예측 |
-| POST | `/api/llm/whitespace-product` | GPU1 | 화이트스페이스 제품 발굴 |
-| POST | `/api/llm/country-strategy` | GPU2 | 국가별 진출 전략 |
-| POST | `/api/llm/category-strategy` | GPU2 | 카테고리 전략 수립 |
-| POST | `/api/llm/whitespace-category` | GPU2 | 카테고리 갭 분석 |
-| POST | `/api/chat/text` | GPU3 | VLM 텍스트 채팅 |
-| POST | `/api/chat/multimodal` | GPU3 | VLM 이미지+텍스트 채팅 |
-| POST | `/api/workflow/run` | Cloud | LangGraph 배치 워크플로우 |
+| Method | Endpoint | GPU (Port) | RAG Tech | Description |
+|--------|----------|------------|----------|-------------|
+| POST | `/api/llm/sns-analysis` | GPU5 (5005) | Self-RAG | SNS 트렌드 분석 |
+| POST | `/api/llm/keyword-why` | GPU5 (5005) | Multi-Query | 키워드 인기 원인 분석 |
+| POST | `/api/llm/whitespace-product` | GPU5 (5005) | Agentic | 화이트스페이스 제품 발굴 |
+| POST | `/api/llm/category-strategy` | GPU6 (5006) | HyDE | 카테고리 전략 수립 |
+| POST | `/api/llm/whitespace-category` | GPU6 (5006) | Multi-Query | 카테고리 갭 분석 |
+| POST | `/api/chat/text` | GPU7 (5007) | Memory | AI 챗봇 (텍스트) |
+| POST | `/api/chat/multimodal` | GPU7 (5007) | Memory | AI 챗봇 (이미지+텍스트) |
+| POST | `/api/llm/review-summary` | GPU7 (5007) | Parent-Doc | 리뷰 요약 & 감성 분석 |
+| POST | `/api/llm/category-trend` | GPU7 (5007) | Adaptive | 카테고리 트렌드 예측 |
+| POST | `/api/llm/rag-insight` | GPU7 (5007) | CRAG | RAG 기반 심층 인사이트 |
+| POST | `/api/llm/plc-prediction` | GPU7 (5007) | Self-RAG | 제품 수명주기 예측 |
+| POST | `/api/llm/category-prediction` | GPU7 (5007) | HyDE | 카테고리 성장 예측 |
+| POST | `/api/workflow/run` | Cloud | - | LangGraph 배치 워크플로우 |
 
 ---
 
