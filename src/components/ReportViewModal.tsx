@@ -236,12 +236,22 @@ export default function ReportViewModal({ isOpen, onClose, reportResult }: Repor
             <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
               {/* Header */}
               <div className={`flex items-center justify-between px-7 py-5 flex-shrink-0 bg-gradient-to-r ${config.gradient} text-white`}>
-                <div>
+                <div className="flex-1">
                   <h2 className="text-xl font-bold flex items-center gap-2">
                     <span className="text-2xl">{config.icon}</span>
                     {config.label}
                   </h2>
-                  <p className="text-white/80 text-sm mt-0.5">RAG 기반 AI 맞춤형 인사이트</p>
+                  {/* 선택한 키워드/카테고리를 헤더 중앙에 표시 */}
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-white/80 text-sm">RAG 기반 AI 맞춤형 인사이트</p>
+                    {reportResult.scope && (
+                      <span className="text-white font-bold text-sm bg-white/20 px-3 py-0.5 rounded-full">
+                        {reportResult.scope === 'keyword'
+                          ? `🔑 ${reportResult.keyword}`
+                          : `📁 ${reportResult.category}`}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <button

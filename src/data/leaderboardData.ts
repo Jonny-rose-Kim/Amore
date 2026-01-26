@@ -2641,8 +2641,8 @@ export const getCountryDataKey = (country: Country): string => {
 const mapTrendLevelToStatus = (level: TrendLevel): TrendStatus => {
   switch (level) {
     case 'Early': return '🌱 Early Trend';
-    case 'Growing': return '📈 Growing Trend';
-    case 'Actionable': return '🚀 Actionable Trend';
+    case 'Growing': return '🚀 Growing Trend';
+    case 'Actionable': return '🔥 Actionable Trend';
     default: return '📉 Cooling';
   }
 };
@@ -2723,14 +2723,14 @@ export const getSNSTopKeywordsByCountry = (country: Country): SNSTopIngredient[]
     return [];
   }
 
-  // 국가별 플랫폼 설정
+  // 국가별 플랫폼 설정 (첫 번째가 맨 위에 표시)
   type PlatformType = SNSTopIngredient['platform'];
-  const platforms: Array<{ name: PlatformType; emoji: string }> = 
-    country === 'usa' 
-      ? [{ name: 'Amazon' as PlatformType, emoji: '📦' }, { name: 'TikTok' as PlatformType, emoji: '🎵' }, { name: 'Instagram' as PlatformType, emoji: '📷' }]
+  const platforms: Array<{ name: PlatformType; emoji: string }> =
+    country === 'usa'
+      ? [{ name: 'Amazon' as PlatformType, emoji: '📦' }, { name: 'YouTube' as PlatformType, emoji: '▶️' }, { name: 'Instagram' as PlatformType, emoji: '📷' }]
       : country === 'japan'
-      ? [{ name: 'Cosme' as PlatformType, emoji: '💄' }, { name: 'Instagram' as PlatformType, emoji: '📷' }, { name: 'YouTube' as PlatformType, emoji: '▶️' }]
-      : [{ name: 'Shopee' as PlatformType, emoji: '🛒' }, { name: 'TikTok' as PlatformType, emoji: '🎵' }, { name: 'Instagram' as PlatformType, emoji: '📷' }];
+      ? [{ name: 'Cosme' as PlatformType, emoji: '💄' }, { name: 'YouTube' as PlatformType, emoji: '▶️' }, { name: 'Instagram' as PlatformType, emoji: '📷' }]  // @cosme 맨 위
+      : [{ name: 'Shopee' as PlatformType, emoji: '🛒' }, { name: 'YouTube' as PlatformType, emoji: '▶️' }, { name: 'Instagram' as PlatformType, emoji: '📷' }];  // Shopee 맨 위
 
   const skincare = countryData.Skincare;
   

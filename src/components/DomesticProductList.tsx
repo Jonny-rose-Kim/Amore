@@ -16,9 +16,20 @@ interface DomesticProductListProps {
   products: DomesticProduct[];
   selectedProduct: DomesticProduct | null;
   onSelectProduct: (product: DomesticProduct) => void;
+  country?: string;
 }
 
-export default function DomesticProductList({ products, selectedProduct, onSelectProduct }: DomesticProductListProps) {
+const countryNames: Record<string, string> = {
+  usa: '미국',
+  japan: '일본',
+  singapore: '싱가포르',
+  malaysia: '말레이시아',
+  indonesia: '인도네시아',
+};
+
+export default function DomesticProductList({ products, selectedProduct, onSelectProduct, country = 'usa' }: DomesticProductListProps) {
+  const countryName = countryNames[country] || '해외';
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -27,7 +38,7 @@ export default function DomesticProductList({ products, selectedProduct, onSelec
     >
       <div className="flex items-center gap-2 mb-4 flex-shrink-0">
         <Package className="w-5 h-5 text-rose-600" />
-        <h3 className="text-slate-900 font-bold text-lg">🇰🇷 한국 인기 제품</h3>
+        <h3 className="text-slate-900 font-bold text-lg">🇰🇷 {countryName} 인기 K-Beauty 제품</h3>
       </div>
 
       <div className="flex-1 overflow-y-auto space-y-2">

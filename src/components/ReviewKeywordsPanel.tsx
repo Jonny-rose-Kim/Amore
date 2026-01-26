@@ -3,7 +3,7 @@ import { ReviewKeywords } from '../data/mockData';
 import { ThumbsUp, ThumbsDown, Sparkles, Loader2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell } from 'recharts';
 import { useState, useEffect } from 'react';
-import { fetchReviewSentiment, fetchCombinationReviewsByType, fetchCombinationReviewKeywords, fetchLLMReviewSummary, ReviewDetail } from '../services/api';
+import { fetchCombinationReviewsByType, fetchCombinationReviewKeywords, fetchLLMReviewSummary, fetchReviewTypeSummary, ReviewDetail } from '../services/api';
 import { translateReview, generateReviewSummary } from '../utils/koreanTranslations';
 
 interface ReviewKeywordsPanelProps {
@@ -24,13 +24,21 @@ export default function ReviewKeywordsPanel({ keywords, itemName, isCombination 
   const [showAiAnalysis, setShowAiAnalysis] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [llmResult, setLlmResult] = useState<{ summary: string; insights: string[]; sentimentRatio: number } | null>(null);
+  const [exaoneSummary, setExaoneSummary] = useState<string>('');
+  const [isLoadingExaone, setIsLoadingExaone] = useState(false);
+  const [currentReviewType, setCurrentReviewType] = useState<string>('');
 
-  // 조합: 리뷰 유형별 데이터 직접 fetch
+  // 리뷰 유형별 데이터 직접 fetch (조합 + 단일 키워드 모두)
   useEffect(() => {
-    if (isCombination && componentKeywords && componentKeywords.length > 0) {
+    // 키워드 목록 결정: 조합이면 componentKeywords, 아니면 itemName
+    const keywordsToFetch = (isCombination && componentKeywords && componentKeywords.length > 0)
+      ? componentKeywords
+      : itemName ? [itemName] : [];
+
+    if (keywordsToFetch.length > 0) {
       setIsLoadingKeywords(true);
       setLocalReviewTypes(null);
-      fetchCombinationReviewKeywords(country, componentKeywords).then(result => {
+      fetchCombinationReviewKeywords(country, keywordsToFetch).then(result => {
         // API가 빈 데이터를 반환하면 fallback mock 생성
         if (result.positive.length === 0 && result.negative.length === 0) {
           const fallbackTypes = ['효과', '보습', '텍스처', '향', '가성비', '자극없음', '지속력', '흡수력'];
@@ -73,15 +81,6 @@ export default function ReviewKeywordsPanel({ keywords, itemName, isCombination 
         setLocalReviewTypes({ positive: fallbackPositive, negative: fallbackNegative });
         setDbSentiment({ positive: totalPos, negative: totalNeg });
         setIsLoadingKeywords(false);
-      });
-    } else if (itemName) {
-      setLocalReviewTypes(null);
-      fetchReviewSentiment(country, itemName).then(result => {
-        if (result.total > 0) {
-          setDbSentiment({ positive: result.positive, negative: result.negative });
-        } else {
-          setDbSentiment(null);
-        }
       });
     }
   }, [itemName, country, isCombination, componentKeywords]);
@@ -135,23 +134,40 @@ export default function ReviewKeywordsPanel({ keywords, itemName, isCombination 
     // 리뷰 유형으로 실제 리뷰 조회 (조합의 component keywords에 매칭되는 리뷰)
     const sentiment = isPositive ? 'positive' : 'negative';
     setReviewSentimentFilter(sentiment);
+    setCurrentReviewType(reviewType);
+    setExaoneSummary('');
+    setIsLoadingExaone(true);
+
     const kws = componentKeywords && componentKeywords.length > 0
       ? componentKeywords
       : itemName.split('+').map(s => s.trim()).filter(Boolean);
-    fetchCombinationReviewsByType(country, kws, reviewType, sentiment, 8).then(reviews => {
+
+    // 리뷰와 EXAONE 요약 동시 로드 (키워드 기반 요약)
+    const keywordForSummary = kws[0] || itemName; // 첫 번째 키워드 사용
+    Promise.all([
+      fetchCombinationReviewsByType(country, kws, reviewType, sentiment, 15),  // 최대 15개로 변경
+      fetchReviewTypeSummary(country, keywordForSummary, sentiment)
+    ]).then(([reviews, summaryResult]) => {
+      // 리뷰 처리
       if (reviews.length > 0) {
         setDbReviews(reviews);
-        setShowingReviews(true);
       } else {
-        // API가 빈 결과면 fallback mock 리뷰 생성
         const mockReviews = generateFallbackReviews(reviewType, sentiment, kws);
         setDbReviews(mockReviews);
-        setShowingReviews(true);
       }
+
+      // EXAONE 요약 처리
+      if (summaryResult && summaryResult.summary) {
+        setExaoneSummary(summaryResult.summary);
+      }
+
+      setIsLoadingExaone(false);
+      setShowingReviews(true);
     }).catch(() => {
       // API 실패 시 fallback
       const mockReviews = generateFallbackReviews(reviewType, sentiment, kws);
       setDbReviews(mockReviews);
+      setIsLoadingExaone(false);
       setShowingReviews(true);
     });
   };
@@ -197,11 +213,11 @@ export default function ReviewKeywordsPanel({ keywords, itemName, isCombination 
   };
 
 
-  // 조합: localReviewTypes 우선 사용, 아니면 props의 keywords
-  const displayKeywords = (isCombination && localReviewTypes) ? localReviewTypes : keywords;
+  // localReviewTypes 우선 사용 (단일 키워드 + 조합 모두), 없으면 props의 keywords
+  const displayKeywords = localReviewTypes || keywords;
 
   if (!displayKeywords) {
-    if (isCombination && (isLoadingKeywords || (componentKeywords && componentKeywords.length > 0))) {
+    if (isLoadingKeywords || itemName) {
       return (
         <div className="bg-white/95 backdrop-blur-sm border border-slate-200/80 rounded-xl p-6 shadow-xl">
           <div className="flex items-center justify-center gap-2">
@@ -335,11 +351,11 @@ export default function ReviewKeywordsPanel({ keywords, itemName, isCombination 
       className="bg-white/95 backdrop-blur-sm border border-slate-200/80 rounded-xl p-6 shadow-xl"
     >
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-slate-900 font-bold text-xl flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-rose-600" />
+        <h3 className="text-slate-900 font-semibold text-base flex items-center gap-1.5">
+          <Sparkles className="w-3.5 h-3.5 text-rose-600" />
           AI 리뷰 키워드 분석
         </h3>
-        <span className="text-xs text-slate-900 bg-slate-200 px-2 py-1 rounded border border-slate-400 font-semibold">
+        <span className="inline-flex items-center px-2.5 py-1 bg-gradient-to-r from-rose-500 to-pink-500 border border-rose-400 rounded-full text-xs font-bold text-white shadow-sm">
           {itemName}
         </span>
       </div>
@@ -385,9 +401,9 @@ export default function ReviewKeywordsPanel({ keywords, itemName, isCombination 
         <div>
           <div className="flex items-center gap-2 mb-1">
             <ThumbsUp className="w-4 h-4 text-emerald-400" />
-            <h4 className="text-slate-900 font-bold text-base">{isCombination ? '긍정 리뷰 유형' : '긍정 리뷰 키워드'}</h4>
+            <h4 className="text-slate-900 font-bold text-base">긍정 리뷰 유형</h4>
           </div>
-          {isCombination && <p className="text-[10px] text-slate-400 mb-2 ml-6">* 바를 클릭하면 해당 유형의 실제 리뷰를 확인할 수 있습니다</p>}
+          <p className="text-[10px] text-slate-400 mb-2 ml-6">* 바를 클릭하면 해당 유형의 실제 리뷰를 확인할 수 있습니다</p>
           <div className="bg-emerald-50/80 border border-emerald-200/80 rounded-lg p-4">
             <ResponsiveContainer width="100%" height={Math.max(120, Math.min(350, positiveData.length * 38))}>
               <BarChart
@@ -452,9 +468,9 @@ export default function ReviewKeywordsPanel({ keywords, itemName, isCombination 
         <div>
           <div className="flex items-center gap-2 mb-1">
             <ThumbsDown className="w-4 h-4 text-rose-400" />
-            <h4 className="text-slate-900 font-bold text-base">{isCombination ? '부정 리뷰 유형' : '부정 리뷰 키워드'}</h4>
+            <h4 className="text-slate-900 font-bold text-base">부정 리뷰 유형</h4>
           </div>
-          {isCombination && <p className="text-[10px] text-slate-400 mb-2 ml-6">* 바를 클릭하면 해당 유형의 실제 리뷰를 확인할 수 있습니다</p>}
+          <p className="text-[10px] text-slate-400 mb-2 ml-6">* 바를 클릭하면 해당 유형의 실제 리뷰를 확인할 수 있습니다</p>
           <div className="bg-rose-50/80 border border-rose-200/80 rounded-lg p-4">
             <ResponsiveContainer width="100%" height={Math.max(120, Math.min(350, negativeData.length * 38))}>
               <BarChart
@@ -546,42 +562,149 @@ export default function ReviewKeywordsPanel({ keywords, itemName, isCombination 
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
+              className="space-y-3"
             >
-              <div className="bg-gradient-to-br from-slate-50 to-slate-100/80 border border-slate-300/80 rounded-lg p-5">
-                <div className="space-y-3">
-                  <p className="text-slate-900 leading-relaxed text-sm">
-                    {aiAnalysis.summary}
-                  </p>
-                  <div className="flex items-center gap-2 pt-2 border-t border-slate-300">
-                    <span className="text-xs text-slate-700 font-semibold">주요 인사이트:</span>
-                    <div className="flex flex-wrap gap-2">
-                      {aiAnalysis.insights.map((insight, idx) => (
-                        <span
-                          key={idx}
-                          className="px-2.5 py-1 bg-rose-100 border border-rose-300 rounded-md text-xs text-slate-900 font-semibold"
-                        >
-                          {insight}
-                        </span>
-                      ))}
+              {/* 이모지 기준으로 섹션 분리하여 표시 */}
+              {(() => {
+                const summary = aiAnalysis.summary || '';
+                // 📊 소비자 반응, 🔍 핵심 인사이트, 💡 시장 전망 기준으로 분리
+                const sections: { emoji: string; title: string; content: string; color: string; bgColor: string }[] = [];
+
+                // 📊 소비자 반응 섹션
+                const consumerMatch = summary.match(/📊\s*소비자\s*반응\s*\n?([\s\S]*?)(?=🔍|💡|$)/);
+                if (consumerMatch && consumerMatch[1]?.trim()) {
+                  sections.push({
+                    emoji: '📊',
+                    title: '소비자 반응',
+                    content: consumerMatch[1].trim(),
+                    color: 'text-blue-600',
+                    bgColor: 'from-blue-50 to-indigo-50/80 border-blue-200/80'
+                  });
+                }
+
+                // 🔍 핵심 인사이트 섹션
+                const insightMatch = summary.match(/🔍\s*핵심\s*인사이트\s*\n?([\s\S]*?)(?=💡|$)/);
+                if (insightMatch && insightMatch[1]?.trim()) {
+                  sections.push({
+                    emoji: '🔍',
+                    title: '핵심 인사이트',
+                    content: insightMatch[1].trim(),
+                    color: 'text-purple-600',
+                    bgColor: 'from-purple-50 to-violet-50/80 border-purple-200/80'
+                  });
+                }
+
+                // 💡 시장 전망 섹션
+                const outlookMatch = summary.match(/💡\s*시장\s*전망\s*\n?([\s\S]*?)$/);
+                if (outlookMatch && outlookMatch[1]?.trim()) {
+                  sections.push({
+                    emoji: '💡',
+                    title: '시장 전망',
+                    content: outlookMatch[1].trim(),
+                    color: 'text-amber-600',
+                    bgColor: 'from-amber-50 to-yellow-50/80 border-amber-200/80'
+                  });
+                }
+
+                // 섹션이 파싱되지 않으면 전체를 하나의 섹션으로 표시
+                if (sections.length === 0 && summary) {
+                  sections.push({
+                    emoji: '📋',
+                    title: '분석 요약',
+                    content: summary,
+                    color: 'text-slate-600',
+                    bgColor: 'from-slate-50 to-slate-100/80 border-slate-200/80'
+                  });
+                }
+
+                return sections.map((section, idx) => (
+                  <motion.div
+                    key={idx}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.1 }}
+                    className={`bg-gradient-to-br ${section.bgColor} border rounded-xl p-4`}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-lg">{section.emoji}</span>
+                      <h5 className={`text-base font-bold ${section.color}`}>{section.title}</h5>
                     </div>
+                    <div className="text-sm text-slate-800 leading-relaxed whitespace-pre-line">
+                      {section.content.split('\n').map((line, lineIdx) => {
+                        const trimmedLine = line.trim();
+                        if (!trimmedLine) return null;
+                        // 번호가 붙은 라인은 리스트 스타일로
+                        if (/^\d+\./.test(trimmedLine)) {
+                          return (
+                            <div key={lineIdx} className="flex items-start gap-2 mt-1">
+                              <span className={`${section.color} font-bold`}>{trimmedLine.match(/^\d+/)?.[0]}.</span>
+                              <span>{trimmedLine.replace(/^\d+\.\s*/, '')}</span>
+                            </div>
+                          );
+                        }
+                        // • 불릿 포인트
+                        if (trimmedLine.startsWith('•')) {
+                          return (
+                            <div key={lineIdx} className="flex items-start gap-2 mt-1">
+                              <span className={`${section.color} font-bold`}>•</span>
+                              <span>{trimmedLine.substring(1).trim()}</span>
+                            </div>
+                          );
+                        }
+                        return <p key={lineIdx} className="mt-1">{trimmedLine}</p>;
+                      })}
+                    </div>
+                  </motion.div>
+                ));
+              })()}
+
+              {/* 키워드 태그 */}
+              {aiAnalysis.insights && aiAnalysis.insights.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="bg-gradient-to-br from-rose-50 to-pink-50/80 border border-rose-200/80 rounded-xl p-4"
+                >
+                  <div className="flex items-center gap-2 mb-3">
+                    <Sparkles className="w-4 h-4 text-rose-600" />
+                    <h5 className="text-base font-bold text-rose-600">핵심 키워드</h5>
                   </div>
-                  <div className="flex items-center gap-3 pt-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                      <span className="text-xs text-slate-700 font-medium">
-                        긍정: {dbSentiment && (dbSentiment.positive + dbSentiment.negative) > 0 ? `${dbSentiment.positive}건 (${Math.round(dbSentiment.positive / (dbSentiment.positive + dbSentiment.negative) * 100)}%)` : `${Math.round(aiAnalysis.sentimentRatio * 100)}%`}
+                  <div className="flex flex-wrap gap-2">
+                    {aiAnalysis.insights.map((insight, idx) => (
+                      <span
+                        key={idx}
+                        className="px-3 py-1.5 bg-white border border-rose-300 rounded-full text-sm text-slate-800 font-medium shadow-sm"
+                      >
+                        #{insight}
                       </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-rose-500"></div>
-                      <span className="text-xs text-slate-700 font-medium">
-                        부정: {dbSentiment && (dbSentiment.positive + dbSentiment.negative) > 0 ? `${dbSentiment.negative}건 (${Math.round(dbSentiment.negative / (dbSentiment.positive + dbSentiment.negative) * 100)}%)` : `${Math.round((1 - aiAnalysis.sentimentRatio) * 100)}%`}
-                      </span>
-                    </div>
+                    ))}
                   </div>
+                </motion.div>
+              )}
+
+              {/* 감성 비율 */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="flex items-center justify-center gap-6 pt-2"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+                  <span className="text-sm text-slate-700 font-medium">
+                    긍정: {dbSentiment && (dbSentiment.positive + dbSentiment.negative) > 0 ? `${dbSentiment.positive}건 (${Math.round(dbSentiment.positive / (dbSentiment.positive + dbSentiment.negative) * 100)}%)` : `${Math.round(aiAnalysis.sentimentRatio * 100)}%`}
+                  </span>
                 </div>
-              </div>
-              <div className="flex justify-center mt-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-rose-500"></div>
+                  <span className="text-sm text-slate-700 font-medium">
+                    부정: {dbSentiment && (dbSentiment.positive + dbSentiment.negative) > 0 ? `${dbSentiment.negative}건 (${Math.round(dbSentiment.negative / (dbSentiment.positive + dbSentiment.negative) * 100)}%)` : `${Math.round((1 - aiAnalysis.sentimentRatio) * 100)}%`}
+                  </span>
+                </div>
+              </motion.div>
+
+              <div className="flex justify-center pt-2">
                 <button
                   onClick={handleAiAnalysisClick}
                   className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
@@ -616,7 +739,8 @@ export default function ReviewKeywordsPanel({ keywords, itemName, isCombination 
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {dbReviews.map((review, idx) => {
-                const korTranslation = translateReview(review.content);
+                // DB의 contentKr 우선 사용, 없으면 translateReview로 fallback
+                const korTranslation = review.contentKr || translateReview(review.content);
                 return (
                   <div
                     key={idx}
@@ -627,17 +751,17 @@ export default function ReviewKeywordsPanel({ keywords, itemName, isCombination 
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <span className="font-bold text-slate-800 text-sm">{review.brand}</span>
-                      <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{review.source} | ⭐ {review.rating}</span>
+                      <span className="font-bold text-slate-800 text-sm">{review.product}</span>
+                      <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{review.source} | ⭐ {review.rating?.toFixed(1)}</span>
                     </div>
                     <p className="text-slate-800 text-sm leading-relaxed mb-1">"{review.content}"</p>
                     {korTranslation && (
-                      <p className="text-slate-600 text-xs leading-relaxed mb-2 pl-2 border-l-2 border-slate-300 italic">
-                        {korTranslation}
+                      <p className="text-slate-600 text-xs leading-relaxed mb-2 pl-2 border-l-2 border-blue-400 bg-blue-50/50 p-2 rounded italic">
+                        🇰🇷 {korTranslation}
                       </p>
                     )}
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-slate-500">{review.product}</span>
+                      <span className="text-xs text-slate-500">{review.brand}</span>
                       <span className="text-[10px] text-slate-400">
                         {new Date(review.postedAt).toLocaleDateString('ko-KR')}
                       </span>
@@ -646,23 +770,6 @@ export default function ReviewKeywordsPanel({ keywords, itemName, isCombination 
                 );
               })}
 
-              {/* 종합 요약 섹션 */}
-              <div className={`mt-4 p-4 rounded-xl border-2 ${
-                reviewSentimentFilter === 'positive'
-                  ? 'bg-emerald-100/60 border-emerald-300'
-                  : 'bg-rose-100/60 border-rose-300'
-              }`}>
-                <div className="flex items-center gap-2 mb-2">
-                  <Sparkles className="w-4 h-4 text-slate-700" />
-                  <h5 className="font-bold text-slate-800 text-sm">종합 요약</h5>
-                </div>
-                <p className="text-slate-700 text-xs leading-relaxed">
-                  {generateReviewSummary(
-                    dbReviews.map(r => ({ content: r.content, sentiment: r.sentiment, brand: r.brand, product: r.product, rating: r.rating })),
-                    reviewSentimentFilter
-                  )}
-                </p>
-              </div>
             </div>
           </div>
         </div>

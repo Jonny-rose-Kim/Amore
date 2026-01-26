@@ -85,11 +85,17 @@ const getBubbleColor = (type: string, isOverseas: boolean = false) => {
   }
 };
 
-const getTrendIntensity = (value: number) => {
-  if (value >= 90) return { level: '🔥', label: '핫', color: 'text-red-400' };
-  if (value >= 80) return { level: '🚀', label: '상승', color: 'text-rose-400' };
-  if (value >= 70) return { level: '📈', label: '안정', color: 'text-pink-400' };
-  return { level: '💫', label: '관찰', color: 'text-rose-300' };
+const getTrendIntensity = (value: number, status?: string) => {
+  // trendLevel 기반 (status에서 추출)
+  if (status) {
+    if (status.includes('Actionable')) return { level: '🔥', label: '핫', color: 'text-red-400' };
+    if (status.includes('Growing')) return { level: '🚀', label: '상승', color: 'text-rose-400' };
+    if (status.includes('Early')) return { level: '🌱', label: '초기', color: 'text-green-400' };
+  }
+  // Fallback: score 기반
+  if (value >= 80) return { level: '🔥', label: '핫', color: 'text-red-400' };
+  if (value >= 60) return { level: '🚀', label: '상승', color: 'text-rose-400' };
+  return { level: '🌱', label: '초기', color: 'text-green-400' };
 };
 
 const getStatusColor = (status?: string) => {
@@ -218,7 +224,7 @@ export default function TrendVisualization({ data, region = 'domestic', onItemCl
           <div className="space-y-2">
             {sortedData.map((item, index) => {
               const colors = getBubbleColor(item.type, isOverseas);
-              const intensity = getTrendIntensity(item.value);
+              const intensity = getTrendIntensity(item.value, item.status);
               const statusColors = getStatusColor(item.status);
               const isHovered = hoveredItem === item.id;
               
@@ -260,11 +266,6 @@ export default function TrendVisualization({ data, region = 'domestic', onItemCl
                           <span className={`px-2 py-0.5 rounded ${colors.icon} ${colors.text} font-medium`}>
                             {item.type === 'ingredient' ? '성분' : item.type === 'formula' ? '제형' : '효과'}
                           </span>
-                          {item.status && (
-                            <span className={`px-2 py-0.5 rounded border backdrop-blur-sm text-xs ${statusColors.badge}`}>
-                              {item.status}
-                            </span>
-                          )}
                           <span className="text-rose-200/70">{intensity.label}</span>
                         </div>
                       </div>

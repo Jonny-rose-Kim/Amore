@@ -24,7 +24,7 @@ from pymongo import MongoClient
 app = Flask(__name__)
 
 # ===== Configuration =====
-DEVICE = "cuda:3"
+DEVICE = "cuda:7"
 MODEL_NAME = "Qwen/Qwen2-VL-2B-Instruct"
 MONGODB_URI = os.environ.get("MONGODB_URI", "mongodb://localhost:27017")
 MONGODB_DATABASE = os.environ.get("MONGODB_DATABASE", "amore")
@@ -67,19 +67,29 @@ chat_collection = chroma_client.get_or_create_collection(
 print(f"ChromaDB initialized: {CHROMA_PERSIST_DIR}")
 
 # ===== System Prompt =====
-SYSTEM_PROMPT = """당신은 AMORE CLUE 대시보드의 K-뷰티 트렌드 분석 AI 어시스턴트입니다.
+SYSTEM_PROMPT = """당신은 AMORE CLUE 대시보드의 K-뷰티 이미지 분석 AI 어시스턴트입니다.
 
-역할:
-- 글로벌 K-뷰티(K-Beauty) 시장 트렌드 분석 전문가
-- 화장품 산업 데이터 기반 인사이트 제공
-- 이미지 분석을 통한 제품/트렌드 시각적 분석
+## 역할
+- 글로벌 K-뷰티(K-Beauty) 이미지 분석 전문가
+- 화장품 제품, 패키지, 광고 이미지 시각적 분석
+- 트렌드 이미지에서 인사이트 도출
 
-답변 규칙:
+## 이미지 분석 포인트
+- 제품 이미지: 패키지 디자인, 색상, 텍스처, 브랜딩 요소
+- 광고 이미지: 타겟 오디언스, 컬러 톤, 무드, 마케팅 메시지
+- 성분/텍스트 이미지: 성분 목록, 효능 표기, 인증 마크
+
+## 답변 규칙
 1. 반드시 한국어로 답변하세요
-2. 데이터에 기반한 구체적이고 전문적인 분석을 제공하세요
+2. 이미지에서 관찰한 내용을 구체적으로 설명하세요
 3. 답변은 구조화하여 제공하세요 (소제목, 번호 매기기 등)
-4. 가능한 경우 수치와 구체적 근거를 포함하세요
-5. K-뷰티 산업에 대한 전문적인 시각으로 답변하세요"""
+4. K-뷰티 산업 관점에서 분석하세요
+
+## 중요 금지사항
+- 같은 문장이나 표현을 반복하지 마세요
+- 동일한 정보를 다른 말로 반복하지 마세요
+- 한 번 언급한 내용은 다시 언급하지 마세요
+- 답변은 명확하고 간결하게 한 번만 작성하세요"""
 
 
 def get_rag_context(query: str, top_k: int = 3) -> str:
@@ -107,40 +117,85 @@ def get_rag_context(query: str, top_k: int = 3) -> str:
 
 
 def get_mongodb_context(query: str) -> str:
-    """MongoDB에서 관련 트렌드/리더보드 데이터 조회"""
+    """MongoDB에서 관련 트렌드/리더보드/SNS 데이터 조회 (풍부한 컨텍스트)"""
     if mongo_db is None:
         return ""
 
     try:
         context_parts = []
 
-        # 트렌드 데이터 조회
-        trends_collection = mongo_db.get_collection("trends")
-        trends = list(trends_collection.find(
-            {},
-            {"combination": 1, "category": 1, "score": 1, "country": 1, "_id": 0}
-        ).sort("score", -1).limit(10))
+        # 1. 트렌드 데이터 조회
+        try:
+            trends_collection = mongo_db.get_collection("trends")
+            trends = list(trends_collection.find(
+                {},
+                {"combination": 1, "category": 1, "score": 1, "country": 1, "ingredients": 1, "effects": 1, "_id": 0}
+            ).sort("score", -1).limit(15))
 
-        if trends:
-            trend_summary = ", ".join([
-                f"{t.get('combination', '')}({t.get('score', 0)}점/{t.get('country', '')})"
-                for t in trends
-            ])
-            context_parts.append(f"[인기 트렌드 Top10] {trend_summary}")
+            if trends:
+                trend_summary = ", ".join([
+                    f"{t.get('combination', '')}({t.get('category', '')}/{t.get('score', 0)}점)"
+                    for t in trends
+                ])
+                context_parts.append(f"[인기 트렌드 조합 Top15] {trend_summary}")
+        except Exception as e:
+            print(f"Trends query error: {e}")
 
-        # 리더보드 데이터 조회
-        leaderboard_collection = mongo_db.get_collection("leaderboard")
-        leaders = list(leaderboard_collection.find(
-            {},
-            {"keyword": 1, "score": 1, "trendLevel": 1, "itemType": 1, "_id": 0}
-        ).sort("score", -1).limit(10))
+        # 2. 리더보드 데이터 조회
+        try:
+            leaderboard_collection = mongo_db.get_collection("leaderboard")
+            leaders = list(leaderboard_collection.find(
+                {},
+                {"keyword": 1, "score": 1, "trendLevel": 1, "itemType": 1, "country": 1, "_id": 0}
+            ).sort("score", -1).limit(20))
 
-        if leaders:
-            leader_summary = ", ".join([
-                f"{l.get('keyword', '')}({l.get('trendLevel', '')}/{l.get('score', 0)}점)"
-                for l in leaders
-            ])
-            context_parts.append(f"[리더보드 Top10] {leader_summary}")
+            if leaders:
+                # 국가별로 그룹화
+                by_country = {}
+                for l in leaders:
+                    country = l.get("country", "usa")
+                    if country not in by_country:
+                        by_country[country] = []
+                    by_country[country].append(f"{l.get('keyword', '')}({l.get('trendLevel', '')}/{l.get('score', 0)}점)")
+
+                for country, keywords in by_country.items():
+                    country_name = {"usa": "미국", "japan": "일본", "singapore": "싱가포르"}.get(country, country)
+                    context_parts.append(f"[{country_name} 인기 키워드] {', '.join(keywords[:10])}")
+        except Exception as e:
+            print(f"Leaderboard query error: {e}")
+
+        # 3. SNS 플랫폼 통계
+        try:
+            sns_collection = mongo_db.get_collection("sns_platform_stats")
+            sns_stats = list(sns_collection.find(
+                {},
+                {"keyword": 1, "platform": 1, "mentionCount": 1, "_id": 0}
+            ).sort("mentionCount", -1).limit(10))
+
+            if sns_stats:
+                sns_summary = ", ".join([
+                    f"{s.get('keyword', '')}({s.get('platform', '')}/{s.get('mentionCount', 0)}건)"
+                    for s in sns_stats
+                ])
+                context_parts.append(f"[SNS 인기 키워드] {sns_summary}")
+        except Exception as e:
+            print(f"SNS stats query error: {e}")
+
+        # 4. 리뷰 키워드 통계
+        try:
+            review_collection = mongo_db.get_collection("review_keywords")
+            review_keywords = list(review_collection.find(
+                {},
+                {"keyword": 1, "sentiment": 1, "count": 1, "_id": 0}
+            ).sort("count", -1).limit(15))
+
+            if review_keywords:
+                positive = [r for r in review_keywords if r.get("sentiment") == "positive"]
+                if positive:
+                    pos_summary = ", ".join([f"{r.get('keyword', '')}({r.get('count', 0)}건)" for r in positive[:8]])
+                    context_parts.append(f"[긍정 리뷰 키워드] {pos_summary}")
+        except Exception as e:
+            print(f"Review keywords query error: {e}")
 
         return "\n".join(context_parts)
     except Exception as e:
@@ -171,8 +226,43 @@ def save_conversation(session_id: str, question: str, answer: str):
         print(f"Save conversation error: {e}")
 
 
+def remove_repetitions(text: str) -> str:
+    """텍스트에서 반복되는 문장/구문 제거"""
+    # 줄 단위로 분리
+    lines = text.split('\n')
+    seen_lines = set()
+    unique_lines = []
+
+    for line in lines:
+        # 정규화된 버전으로 비교 (공백, 특수문자 제거)
+        normalized = re.sub(r'[^\w가-힣]', '', line.lower())
+        if normalized and len(normalized) > 10:  # 짧은 줄은 무시
+            if normalized in seen_lines:
+                continue
+            seen_lines.add(normalized)
+        unique_lines.append(line)
+
+    # 연속 반복 문장 제거
+    result = '\n'.join(unique_lines)
+
+    # 같은 문장이 2번 이상 나오면 첫 번째만 유지
+    sentences = re.split(r'(?<=[.!?])\s+', result)
+    seen_sentences = set()
+    unique_sentences = []
+
+    for sentence in sentences:
+        normalized = re.sub(r'[^\w가-힣]', '', sentence.lower())
+        if normalized and len(normalized) > 20:
+            if normalized in seen_sentences:
+                continue
+            seen_sentences.add(normalized)
+        unique_sentences.append(sentence)
+
+    return ' '.join(unique_sentences)
+
+
 def generate_text_response(user_message: str, rag_context: str, db_context: str) -> str:
-    """텍스트 전용 VLM 응답 생성"""
+    """텍스트 전용 VLM 응답 생성 (반복 방지 강화)"""
     # 프롬프트 구성
     context_block = ""
     if rag_context:
@@ -180,7 +270,7 @@ def generate_text_response(user_message: str, rag_context: str, db_context: str)
     if db_context:
         context_block += f"\n[현재 DB 데이터]\n{db_context}\n"
 
-    full_prompt = f"{context_block}\n사용자 질문: {user_message}" if context_block else user_message
+    full_prompt = f"{context_block}\n사용자 질문: {user_message}\n\n답변 시 같은 내용을 반복하지 마세요." if context_block else f"{user_message}\n\n답변 시 같은 내용을 반복하지 마세요."
 
     messages = [
         {"role": "system", "content": [{"type": "text", "text": SYSTEM_PROMPT}]},
@@ -195,18 +285,23 @@ def generate_text_response(user_message: str, rag_context: str, db_context: str)
             **inputs,
             max_new_tokens=1024,
             temperature=0.7,
-            top_p=0.9,
+            top_p=0.85,
             do_sample=True,
-            repetition_penalty=1.1,
+            repetition_penalty=1.3,  # 반복 방지 강화 (1.1 → 1.3)
+            no_repeat_ngram_size=4,  # 4-gram 반복 금지
         )
 
     generated = outputs[0][inputs["input_ids"].shape[1]:]
     response = processor.decode(generated, skip_special_tokens=True)
+
+    # 후처리: 반복 문장 제거
+    response = remove_repetitions(response)
+
     return response.strip()
 
 
 def generate_multimodal_response(user_message: str, image_base64: str, rag_context: str, db_context: str) -> str:
-    """멀티모달 (이미지+텍스트) VLM 응답 생성"""
+    """멀티모달 (이미지+텍스트) VLM 응답 생성 (반복 방지 강화)"""
     # base64 → PIL Image
     image_data = base64.b64decode(image_base64)
     image = Image.open(io.BytesIO(image_data)).convert("RGB")
@@ -218,7 +313,14 @@ def generate_multimodal_response(user_message: str, image_base64: str, rag_conte
     if db_context:
         context_block += f"\n[현재 DB 데이터]\n{db_context}\n"
 
-    text_content = f"{context_block}\n사용자 질문: {user_message}\n\n위 이미지를 분석하고 질문에 답변해주세요." if context_block else f"{user_message}\n\n위 이미지를 분석하고 질문에 답변해주세요."
+    text_content = f"""{context_block}
+사용자 질문: {user_message}
+
+위 이미지를 분석하고 질문에 답변해주세요.
+중요: 같은 내용을 반복하지 말고, 한 번 언급한 내용은 다시 언급하지 마세요.""" if context_block else f"""{user_message}
+
+위 이미지를 분석하고 질문에 답변해주세요.
+중요: 같은 내용을 반복하지 말고, 한 번 언급한 내용은 다시 언급하지 마세요."""
 
     messages = [
         {"role": "system", "content": [{"type": "text", "text": SYSTEM_PROMPT}]},
@@ -243,13 +345,18 @@ def generate_multimodal_response(user_message: str, image_base64: str, rag_conte
             **inputs,
             max_new_tokens=1024,
             temperature=0.7,
-            top_p=0.9,
+            top_p=0.85,
             do_sample=True,
-            repetition_penalty=1.1,
+            repetition_penalty=1.3,  # 반복 방지 강화 (1.1 → 1.3)
+            no_repeat_ngram_size=4,  # 4-gram 반복 금지
         )
 
     generated = outputs[0][inputs["input_ids"].shape[1]:]
     response = processor.decode(generated, skip_special_tokens=True)
+
+    # 후처리: 반복 문장 제거
+    response = remove_repetitions(response)
+
     return response.strip()
 
 
@@ -336,7 +443,7 @@ def health_check():
         "status": "ok",
         "model": MODEL_NAME,
         "device": DEVICE,
-        "port": 5004,
+        "port": 5008,
         "mongodb": "connected" if mongo_db is not None else "disconnected",
         "chromadb_docs": chat_collection.count(),
     })
@@ -347,8 +454,8 @@ if __name__ == "__main__":
     print(f"  AMORE CLUE VLM Chatbot Server")
     print(f"  Model: {MODEL_NAME}")
     print(f"  Device: {DEVICE}")
-    print(f"  Port: 5004")
+    print(f"  Port: 5008")
     print(f"  MongoDB: {'connected' if mongo_db is not None else 'disconnected'}")
     print(f"  ChromaDB: {CHROMA_PERSIST_DIR}")
     print(f"{'='*50}\n")
-    app.run(host="0.0.0.0", port=5004, debug=False)
+    app.run(host="0.0.0.0", port=5008, debug=False)

@@ -7,15 +7,15 @@ interface InfoTooltipProps {
   description: string;
   usage?: string;
   terms?: { term: string; meaning: string }[];
-  position?: 'top' | 'bottom' | 'left' | 'right';
+  position?: 'top' | 'bottom' | 'left' | 'right' | 'bottom-left' | 'bottom-right';
 }
 
-export default function InfoTooltip({ 
-  title, 
-  description, 
-  usage, 
+export default function InfoTooltip({
+  title,
+  description,
+  usage,
   terms = [],
-  position = 'bottom' 
+  position = 'bottom'
 }: InfoTooltipProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -24,6 +24,8 @@ export default function InfoTooltip({
     bottom: 'top-full left-1/2 transform -translate-x-1/2 mt-2',
     left: 'right-full top-1/2 transform -translate-y-1/2 mr-2',
     right: 'left-full top-1/2 transform -translate-y-1/2 ml-2',
+    'bottom-left': 'top-full right-0 mt-2',
+    'bottom-right': 'top-full left-0 mt-2',
   };
 
   return (

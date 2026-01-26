@@ -1,11 +1,11 @@
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell, LabelList } from 'recharts';
 import { SNSTopIngredient, Country } from '../data/mockData';
 import { motion } from 'framer-motion';
 import { Instagram, Music, Youtube, ShoppingBag, Store, Sparkles, Loader2 } from 'lucide-react';
 import { getIntegratedAIAnalysis } from '../data/leaderboardData';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import ProductDetailModal from './ProductDetailModal';
-import { fetchSNSPlatformData, fetchProductsByKeyword, fetchLLMSNSAnalysis, SNSPlatformDBData } from '../services/api';
+import { fetchSNSPlatformData, fetchProductsByKeyword, fetchLLMSNSAnalysis, SNSPlatformDBData, fetchLeaderboard } from '../services/api';
 
 interface SNSTopChartProps {
   data: SNSTopIngredient[];
@@ -26,6 +26,7 @@ const getPlatformIcon = (platform: string) => {
     case 'Shopee':
       return ShoppingBag;
     case 'Cosme':
+    case '@cosme':
       return Store;
     default:
       return Instagram;
@@ -43,23 +44,49 @@ const getPlatformColor = (platform: string) => {
     case 'Amazon':
       return { gradient: 'from-orange-500 to-amber-500', bar: '#f97316' };
     case 'Shopee':
-      return { gradient: 'from-orange-500 to-red-500', bar: '#f97316' };
+      return { gradient: 'from-orange-500 to-red-600', bar: '#ee4d2d' };  // Shopee 브랜드 색상
     case 'Cosme':
+    case '@cosme':
       return { gradient: 'from-pink-500 to-purple-500', bar: '#a855f7' };
     default:
       return { gradient: 'from-pink-500 to-rose-500', bar: '#ec4899' };
   }
 };
 
+// 키워드 타입별 라벨 매핑
+const typeLabels: Record<string, string> = {
+  ingredient: '성분',
+  ingredients: '성분',
+  formula: '제형',
+  formulas: '제형',
+  effect: '효과',
+  effects: '효과',
+  mood: 'Visual/Mood',
+  visual: 'Visual/Mood'
+};
+
+// Trend Index 정규화 (0~100)
+const normalizeTrendIndex = (value: number, maxValue: number): number => {
+  if (maxValue <= 0) return 0;
+  return Math.round((value / maxValue) * 100);
+};
+
 export default function SNSTopChart({ data, country, category }: SNSTopChartProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
-  const [analysisData, setAnalysisData] = useState<{ summary: string; insights: string[]; recommendations: string[] } | null>(null);
+  const [analysisData, setAnalysisData] = useState<{
+    summary: string;
+    retailAnalysis?: string;
+    snsAnalysis?: string;
+    insights: string[];
+    recommendations: string[]
+  } | null>(null);
   const [selectedKeyword, setSelectedKeyword] = useState<{ keyword: string; platform: string } | null>(null);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [dbPlatforms, setDbPlatforms] = useState<SNSPlatformDBData[]>([]);
   const [dbProducts, setDbProducts] = useState<any[]>([]);
   const [dbAdditionalInfo, setDbAdditionalInfo] = useState('');
+  const [leaderboardKeywords, setLeaderboardKeywords] = useState<any[]>([]);
 
   // DB에서 SNS 플랫폼 데이터 가져오기 (카테고리별)
   useEffect(() => {
@@ -69,21 +96,98 @@ export default function SNSTopChart({ data, country, category }: SNSTopChartProp
           setDbPlatforms(platforms);
         }
       });
+
+      // 리더보드 데이터도 가져오기 (fallback용)
+      Promise.all([
+        fetchLeaderboard(country, category || 'Skincare', 'Ingredients', 'Actionable'),
+        fetchLeaderboard(country, category || 'Skincare', 'Texture', 'Actionable'),
+        fetchLeaderboard(country, category || 'Skincare', 'Effects', 'Actionable'),
+      ]).then(([ingredients, formulas, effects]) => {
+        const combined = [
+          ...ingredients.map(k => ({ ...k, type: 'ingredient' })),
+          ...formulas.map(k => ({ ...k, type: 'formula' })),
+          ...effects.map(k => ({ ...k, type: 'effect' }))
+        ];
+        setLeaderboardKeywords(combined);
+      });
     }
   }, [country, category]);
 
-  // 실제 DB 데이터와 mock 데이터 병합
-  const displayData = dbPlatforms.length > 0
-    ? dbPlatforms.map(p => ({
-        platform: p.platform,
-        keywords: p.keywords.map(k => ({
-          name: k.name,
-          value: k.value,
-          change: k.change,
-          type: k.type
+  // 국가별 플랫폼 순서 정의 (첫 번째가 맨 위에 표시)
+  const platformOrderByCountry: Record<string, string[]> = {
+    'usa': ['Amazon', 'YouTube', 'Instagram'],  // 데이터는 Instagram, 표시만 TikTok
+    'japan': ['@cosme', 'YouTube', 'Instagram'],  // @cosme 맨 위
+    'singapore': ['Shopee', 'YouTube', 'Instagram'],  // Shopee 맨 위
+    'malaysia': ['Shopee', 'YouTube', 'Instagram'],   // Shopee 맨 위
+    'indonesia': ['Shopee', 'YouTube', 'Instagram'],  // Shopee 맨 위
+  };
+
+  // 미국에서 Instagram을 TikTok으로 표시
+  const getDisplayPlatformName = (platform: string) => {
+    if (country === 'usa' && platform === 'Instagram') {
+      return 'TikTok';
+    }
+    return platform;
+  };
+
+  // Trend Index 정규화 및 내림차순 정렬된 데이터 생성
+  const displayData = useMemo(() => {
+    const platformOrder = platformOrderByCountry[country || 'usa'] || ['Shopee', 'YouTube', 'Instagram'];
+
+    const rawData = dbPlatforms.length > 0
+      ? dbPlatforms.map(p => ({
+          platform: p.platform,
+          keywords: p.keywords.map(k => ({
+            name: k.name,
+            value: k.value,
+            change: k.change,
+            type: k.type
+          }))
         }))
-      }))
-    : data;
+      : data;
+
+    // 국가별로 허용된 플랫폼만 필터링하고 순서대로 정렬
+    const filteredData = rawData
+      .filter(p => platformOrder.includes(p.platform))
+      .sort((a, b) => platformOrder.indexOf(a.platform) - platformOrder.indexOf(b.platform));
+
+    // 각 플랫폼별로 키워드 정규화 및 정렬
+    return filteredData.map(platformData => {
+      const keywords = [...platformData.keywords];
+
+      // 데이터가 부족하면 리더보드에서 보충
+      if (keywords.length < 5 && leaderboardKeywords.length > 0) {
+        const existingNames = new Set(keywords.map(k => k.name.toLowerCase()));
+        const additionalKeywords = leaderboardKeywords
+          .filter(k => !existingNames.has(k.keyword.toLowerCase()))
+          .slice(0, 5 - keywords.length)
+          .map(k => ({
+            name: k.keyword,
+            value: k.score || 70,
+            change: k.change || Math.floor(Math.random() * 10) - 3,
+            type: k.type || 'ingredient'
+          }));
+        keywords.push(...additionalKeywords);
+      }
+
+      // 최대값 기준으로 0~100 정규화
+      const maxValue = Math.max(...keywords.map(k => k.value), 1);
+      const normalizedKeywords = keywords
+        .map(k => ({
+          ...k,
+          trendIndex: normalizeTrendIndex(k.value, maxValue),
+          originalValue: k.value
+        }))
+        // 내림차순 정렬 (Trend Index 높은 것이 위에)
+        .sort((a, b) => b.trendIndex - a.trendIndex)
+        .slice(0, 5);
+
+      return {
+        platform: platformData.platform,
+        keywords: normalizedKeywords
+      };
+    });
+  }, [dbPlatforms, data, leaderboardKeywords, country]);
 
   const getKoreanDescription = (keyword: string, platform: string, products: any[]) => {
     const productNames = products.slice(0, 3).map(p => p.name).join(', ');
@@ -92,51 +196,150 @@ export default function SNSTopChart({ data, country, category }: SNSTopChartProp
     const avgRating = products.length > 0
       ? (products.reduce((sum: number, p: any) => sum + (p.rating || 4.5), 0) / products.length).toFixed(1)
       : '4.5';
-    return `"${keyword}" 키워드는 ${platform}에서 높은 언급량과 검색량을 기록하고 있습니다. ` +
+
+    const platformKr = platform === 'Amazon' ? '아마존' : platform === 'YouTube' ? '유튜브' : platform === 'TikTok' ? '틱톡' : platform === 'Instagram' ? '인스타그램' : platform;
+
+    return `"${keyword}" 키워드는 ${platformKr}에서 높은 Trend Index를 기록하고 있습니다. ` +
       `대표 제품으로는 ${productNames} 등이 있으며, ` +
       `평균 평점 ${avgRating}점, 총 리뷰 수 ${reviewTotal.toLocaleString()}개를 보유하고 있습니다. ` +
       `${topBrand} 브랜드가 해당 키워드에서 가장 높은 인기를 얻고 있으며, ` +
       `소비자들의 구매 전환율이 높은 트렌드 키워드입니다.`;
   };
 
-  const handleBarClick = (keyword: string, platform: string) => {
+  // 플랫폼별 실제 제품 이미지 URL 맵핑
+  const getProductImageUrl = (brand: string, productName: string, platform: string): string => {
+    // 실제 아마존/유튜브 제품 이미지 URL 패턴
+    const brandImageMap: Record<string, string> = {
+      'cerave': 'https://m.media-amazon.com/images/I/61S7BrCBj7L._SL1000_.jpg',
+      'la roche-posay': 'https://m.media-amazon.com/images/I/61bZ8F09sWL._SL1500_.jpg',
+      'neutrogena': 'https://m.media-amazon.com/images/I/71RMIHB4DnL._SL1500_.jpg',
+      'olay': 'https://m.media-amazon.com/images/I/71r0h4SBJHL._SL1500_.jpg',
+      'the ordinary': 'https://m.media-amazon.com/images/I/51EaHYCsqiL._SL1500_.jpg',
+      'paula\'s choice': 'https://m.media-amazon.com/images/I/61wOXQKsjGL._SL1500_.jpg',
+      'cosrx': 'https://m.media-amazon.com/images/I/61sWWCVUWqL._SL1500_.jpg',
+      'innisfree': 'https://m.media-amazon.com/images/I/61e+M1GjZOL._SL1500_.jpg',
+      'beauty of joseon': 'https://m.media-amazon.com/images/I/61jx9r8E-qL._SL1500_.jpg',
+      'anua': 'https://m.media-amazon.com/images/I/61Wbcv-SSAL._SL1500_.jpg',
+      'tirtir': 'https://m.media-amazon.com/images/I/61SjIlYqOxL._SL1500_.jpg',
+      'skin1004': 'https://m.media-amazon.com/images/I/61YXQGMPDVL._SL1500_.jpg',
+      'isntree': 'https://m.media-amazon.com/images/I/61fYqBQQPeL._SL1500_.jpg',
+      'medicube': 'https://m.media-amazon.com/images/I/61GRkqpuBZL._SL1500_.jpg',
+      'heimish': 'https://m.media-amazon.com/images/I/61z7L0kkzJL._SL1500_.jpg',
+      'numbuzin': 'https://m.media-amazon.com/images/I/71qnLVf-UPL._SL1500_.jpg',
+      'torriden': 'https://m.media-amazon.com/images/I/51BxkFkB26L._SL1500_.jpg',
+      'some by mi': 'https://m.media-amazon.com/images/I/71dXSdxJmRL._SL1500_.jpg',
+      'missha': 'https://m.media-amazon.com/images/I/61nLIHQhWYL._SL1500_.jpg',
+      'laneige': 'https://m.media-amazon.com/images/I/61Q08AYWJAL._SL1500_.jpg'
+    };
+
+    const lowerBrand = brand.toLowerCase();
+    for (const [key, url] of Object.entries(brandImageMap)) {
+      if (lowerBrand.includes(key)) {
+        return url;
+      }
+    }
+
+    // 키워드 기반 기본 이미지
+    const keywordImageMap: Record<string, string> = {
+      'retinol': 'https://m.media-amazon.com/images/I/51EaHYCsqiL._SL1500_.jpg',
+      'niacinamide': 'https://m.media-amazon.com/images/I/61fYqBQQPeL._SL1500_.jpg',
+      'hyaluronic': 'https://m.media-amazon.com/images/I/51BxkFkB26L._SL1500_.jpg',
+      'vitamin c': 'https://m.media-amazon.com/images/I/61jx9r8E-qL._SL1500_.jpg',
+      'sunscreen': 'https://m.media-amazon.com/images/I/61bZ8F09sWL._SL1500_.jpg',
+      'moisturizer': 'https://m.media-amazon.com/images/I/61S7BrCBj7L._SL1000_.jpg',
+      'serum': 'https://m.media-amazon.com/images/I/61Wbcv-SSAL._SL1500_.jpg',
+      'cleanser': 'https://m.media-amazon.com/images/I/61z7L0kkzJL._SL1500_.jpg',
+      'toner': 'https://m.media-amazon.com/images/I/61YXQGMPDVL._SL1500_.jpg',
+      'cream': 'https://m.media-amazon.com/images/I/71r0h4SBJHL._SL1500_.jpg'
+    };
+
+    const lowerProduct = productName.toLowerCase();
+    for (const [key, url] of Object.entries(keywordImageMap)) {
+      if (lowerProduct.includes(key)) {
+        return url;
+      }
+    }
+
+    // 기본 이미지 (플랫폼별)
+    if (platform === 'Amazon') {
+      return 'https://m.media-amazon.com/images/I/61S7BrCBj7L._SL1000_.jpg';
+    }
+    return 'https://m.media-amazon.com/images/I/61fYqBQQPeL._SL1500_.jpg';
+  };
+
+  const handleBarClick = (keyword: string, platform: string, trendIndex?: number) => {
     setSelectedKeyword({ keyword, platform });
     // DB에서 관련 제품 가져오기
     fetchProductsByKeyword(keyword, country).then(products => {
       if (products.length > 0) {
-        setDbProducts(products.map((p, idx) => ({
+        // 최소 2개 제품 보장
+        const displayProducts = products.slice(0, Math.max(2, products.length));
+        setDbProducts(displayProducts.map((p, idx) => ({
           id: `db-product-${idx}`,
           name: p.name,
           brand: p.brand,
-          image: p.imageUrl || `https://via.placeholder.com/200x200?text=${encodeURIComponent(p.brand)}`,
+          image: p.imageUrl || getProductImageUrl(p.brand, p.name, platform),
           salesRank: idx + 1,
           rating: p.rating?.toFixed(1) || '4.5',
           reviewCount: p.reviewCount || 0,
-          popularityScore: p.score || 80,
+          popularityScore: trendIndex || p.score || 80,
         })));
-        setDbAdditionalInfo(getKoreanDescription(keyword, platform, products));
+        setDbAdditionalInfo(getKoreanDescription(keyword, platform, displayProducts));
       } else {
-        setDbProducts(generateBestSellerProducts(keyword, platform).products);
-        setDbAdditionalInfo(`"${keyword}" 키워드는 ${platform}에서 주목받고 있는 트렌드 키워드입니다. 관련 K-Beauty 제품이 높은 관심을 받고 있습니다.`);
+        // 데이터가 없으면 시뮬레이션 데이터 생성
+        const simulatedProducts = generateBestSellerProducts(keyword, platform, trendIndex);
+        setDbProducts(simulatedProducts.products);
+        setDbAdditionalInfo(simulatedProducts.additionalInfo);
       }
       setIsProductModalOpen(true);
     });
   };
 
-  const generateBestSellerProducts = (keyword: string, platform: string) => {
-    const products = [
-      {
-        id: `product-1-${keyword}`,
-        name: `${keyword} K-Beauty Product`,
-        brand: 'K-Beauty Brand',
-        image: '/images/products/cerave-1.jpg',
-        salesRank: 1,
-        rating: '4.6',
-        reviewCount: 3000,
-        popularityScore: 85,
-      },
-    ];
-    const additionalInfo = `${keyword} is trending on ${platform}.`;
+  const generateBestSellerProducts = (keyword: string, platform: string, trendIndex?: number) => {
+    // 플랫폼별 대표 브랜드 및 제품 시뮬레이션
+    const platformProducts: Record<string, Array<{ brand: string; nameTemplate: string; imageKey: string }>> = {
+      'Amazon': [
+        { brand: 'CeraVe', nameTemplate: '{keyword} Moisturizing Cream', imageKey: 'cerave' },
+        { brand: 'The Ordinary', nameTemplate: '{keyword} Solution', imageKey: 'the ordinary' },
+        { brand: 'La Roche-Posay', nameTemplate: '{keyword} Treatment', imageKey: 'la roche-posay' },
+      ],
+      'YouTube': [
+        { brand: 'COSRX', nameTemplate: '{keyword} Essence', imageKey: 'cosrx' },
+        { brand: 'Beauty of Joseon', nameTemplate: '{keyword} Serum', imageKey: 'beauty of joseon' },
+        { brand: 'Anua', nameTemplate: '{keyword} Toner', imageKey: 'anua' },
+      ],
+      'Instagram': [
+        { brand: 'TIRTIR', nameTemplate: '{keyword} Cushion', imageKey: 'tirtir' },
+        { brand: 'Skin1004', nameTemplate: '{keyword} Ampoule', imageKey: 'skin1004' },
+        { brand: 'Numbuzin', nameTemplate: '{keyword} Serum', imageKey: 'numbuzin' },
+      ],
+      'TikTok': [
+        { brand: 'TIRTIR', nameTemplate: '{keyword} Cushion', imageKey: 'tirtir' },
+        { brand: 'Medicube', nameTemplate: '{keyword} Booster', imageKey: 'medicube' },
+        { brand: 'Torriden', nameTemplate: '{keyword} Serum', imageKey: 'torriden' },
+      ],
+    };
+
+    const platformProductList = platformProducts[platform] || platformProducts['Amazon'];
+    const score = trendIndex || 75;
+
+    const products = platformProductList.slice(0, 2).map((p, idx) => ({
+      id: `simulated-product-${idx}-${keyword}`,
+      name: p.nameTemplate.replace('{keyword}', keyword),
+      brand: p.brand,
+      image: getProductImageUrl(p.brand, p.nameTemplate, platform),
+      salesRank: idx + 1,
+      rating: (4.2 + Math.random() * 0.6).toFixed(1),
+      reviewCount: Math.floor(1000 + Math.random() * 5000),
+      popularityScore: Math.max(60, score - idx * 10),
+    }));
+
+    const platformKr = platform === 'Amazon' ? '아마존' : platform === 'YouTube' ? '유튜브' : platform === 'TikTok' ? '틱톡' : platform === 'Instagram' ? '인스타그램' : platform;
+    const additionalInfo = `"${keyword}" 키워드는 ${platformKr}에서 Trend Index ${score}점을 기록하며 주목받고 있습니다. ` +
+      `${products[0].brand}와 ${products[1]?.brand || '관련 브랜드'}의 제품이 높은 인기를 얻고 있으며, ` +
+      `해당 키워드를 포함한 제품들의 평균 평점은 4.5점 이상입니다. ` +
+      `K-Beauty 트렌드와 결합하여 소비자들의 관심이 지속적으로 증가하고 있습니다.`;
+
     return { products, additionalInfo };
   };
 
@@ -173,6 +376,8 @@ export default function SNSTopChart({ data, country, category }: SNSTopChartProp
       if (result.success && result.summary) {
         setAnalysisData({
           summary: result.summary,
+          retailAnalysis: result.retailAnalysis,
+          snsAnalysis: result.snsAnalysis,
           insights: result.insights,
           recommendations: result.recommendations,
         });
@@ -197,9 +402,12 @@ export default function SNSTopChart({ data, country, category }: SNSTopChartProp
     <div className="space-y-4">
       {/* 플랫폼별 차트 */}
       {displayData.map((platformData, index) => {
-        const Icon = getPlatformIcon(platformData.platform);
-        const colors = getPlatformColor(platformData.platform);
-        
+        // 미국에서 Instagram을 TikTok으로 표시
+        const displayPlatform = getDisplayPlatformName(platformData.platform);
+        const Icon = getPlatformIcon(displayPlatform);
+        const colors = getPlatformColor(displayPlatform);
+        const platformKr = displayPlatform === 'Amazon' ? '아마존' : displayPlatform === 'YouTube' ? '유튜브' : displayPlatform === 'TikTok' ? '틱톡' : displayPlatform === 'Instagram' ? '인스타그램' : displayPlatform;
+
         return (
           <motion.div
             key={platformData.platform}
@@ -208,19 +416,26 @@ export default function SNSTopChart({ data, country, category }: SNSTopChartProp
             transition={{ delay: index * 0.1 }}
             className="bg-white/95 backdrop-blur-sm border border-slate-200/80 rounded-xl p-4"
           >
-            <div className="flex items-center gap-2 mb-3">
-              <Icon className="w-5 h-5 text-rose-600" />
-              <h4 className="text-slate-900 font-bold text-base">{platformData.platform}</h4>
-              <span className="text-xs text-slate-700 font-semibold">Top 키워드</span>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Icon className="w-5 h-5 text-rose-600" />
+                <h4 className="text-slate-900 font-bold text-base">{displayPlatform}</h4>
+                <span className="text-xs text-slate-700 font-semibold">Top 5 키워드</span>
+              </div>
+              <div className="flex items-center gap-1 text-xs text-slate-500">
+                <span>Trend Index</span>
+                <span className="text-rose-600 font-semibold">(0~100)</span>
+              </div>
             </div>
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart 
-                data={platformData.keywords} 
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart
+                data={platformData.keywords}
                 layout="vertical"
+                margin={{ top: 5, right: 50, left: 10, bottom: 5 }}
                 onClick={(data: any) => {
                   if (data && data.activePayload && data.activePayload[0]) {
-                    const keyword = data.activePayload[0].payload.name;
-                    handleBarClick(keyword, platformData.platform);
+                    const payload = data.activePayload[0].payload;
+                    handleBarClick(payload.name, displayPlatform, payload.trendIndex);
                   }
                 }}
               >
@@ -228,8 +443,9 @@ export default function SNSTopChart({ data, country, category }: SNSTopChartProp
                 <YAxis
                   dataKey="name"
                   type="category"
-                  tick={{ fill: '#1e293b', fontSize: 12, fontWeight: 'bold' }}
-                  width={80}
+                  tick={{ fill: '#1e293b', fontSize: 11, fontWeight: 'bold' }}
+                  width={95}
+                  tickFormatter={(value) => value.length > 11 ? value.substring(0, 11) + '...' : value}
                 />
                 <Tooltip
                   contentStyle={{
@@ -237,40 +453,52 @@ export default function SNSTopChart({ data, country, category }: SNSTopChartProp
                     border: '1px solid rgba(251, 113, 133, 0.5)',
                     borderRadius: '8px',
                     color: '#ffffff',
-                    padding: '8px 12px',
+                    padding: '10px 14px',
                   }}
                   labelStyle={{
                     color: '#fda4af',
                     fontWeight: 'bold',
-                    marginBottom: '4px',
+                    marginBottom: '6px',
+                    fontSize: '13px',
                   }}
-                  formatter={(value: number, name: string, props: any) => {
+                  formatter={(_value: number, _name: string, props: any) => {
                     const changeText = props.payload.change > 0 ? `+${props.payload.change}` : `${props.payload.change}`;
-                    const typeMap: Record<string, string> = { ingredient: '성분', ingredients: '성분', formula: '제형', formulas: '제형', effect: '효과', effects: '효과', mood: 'Mood/Visual' };
-                    const typeText = typeMap[props.payload.type] || props.payload.type;
-                    return [`${value}% (${changeText}%)`, `${typeText} - 언급량`];
+                    const typeText = typeLabels[props.payload.type] || props.payload.type || '성분';
+                    return [`Trend Index: ${props.payload.trendIndex} (${changeText}%)`, `${typeText}`];
                   }}
                   itemStyle={{
                     color: '#ffffff',
                     fontWeight: 'bold',
                   }}
+                  cursor={{ fill: 'rgba(251, 113, 133, 0.1)' }}
                 />
-                <Bar 
-                  dataKey="value" 
+                <Bar
+                  dataKey="trendIndex"
                   radius={[0, 8, 8, 0]}
                   style={{ cursor: 'pointer' }}
                 >
-                  {platformData.keywords.map((entry, idx) => (
+                  {platformData.keywords.map((_entry: any, idx: number) => (
                     <Cell
                       key={`cell-${idx}`}
                       fill={colors.bar}
-                      opacity={0.8 - idx * 0.1}
+                      opacity={1 - idx * 0.12}
                       style={{ cursor: 'pointer' }}
                     />
                   ))}
+                  <LabelList
+                    dataKey="trendIndex"
+                    position="right"
+                    fill="#334155"
+                    fontSize={11}
+                    fontWeight="bold"
+                    formatter={(value: number) => `${value}`}
+                  />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
+            <div className="mt-2 text-xs text-slate-500 text-center">
+              막대를 클릭하면 "{platformKr}" 플랫폼에서 해당 키워드의 인기 제품을 확인할 수 있습니다
+            </div>
           </motion.div>
         );
       })}
@@ -313,53 +541,117 @@ export default function SNSTopChart({ data, country, category }: SNSTopChartProp
             animate={{ opacity: 1, y: 0 }}
             className="space-y-4"
           >
-            {/* 종합 요약 */}
-            <div>
-              <p className="text-sm text-slate-900 leading-relaxed font-medium">
-                {analysisData.summary}
-              </p>
-            </div>
+            {/* Retail 분석 섹션 */}
+            {analysisData.retailAnalysis && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="bg-gradient-to-br from-orange-50 to-amber-50/80 border border-orange-200/80 rounded-xl p-4"
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <ShoppingBag className="w-5 h-5 text-orange-600" />
+                  <h5 className="text-lg font-bold text-orange-700">Retail 채널 분석</h5>
+                </div>
+                <div className="text-sm text-slate-800 leading-relaxed space-y-1.5">
+                  {analysisData.retailAnalysis.split(/[.。]/).filter(s => s.trim()).map((sentence, idx) => (
+                    <div key={idx} className="flex items-start gap-2">
+                      <span className="text-orange-500 font-bold mt-0.5">•</span>
+                      <span>{sentence.trim()}</span>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {/* SNS 분석 섹션 */}
+            {analysisData.snsAnalysis && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="bg-gradient-to-br from-pink-50 to-rose-50/80 border border-pink-200/80 rounded-xl p-4"
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <Instagram className="w-5 h-5 text-pink-600" />
+                  <h5 className="text-lg font-bold text-pink-700">SNS 채널 분석</h5>
+                </div>
+                <div className="text-sm text-slate-800 leading-relaxed space-y-1.5">
+                  {analysisData.snsAnalysis.split(/[.。]/).filter(s => s.trim()).map((sentence, idx) => (
+                    <div key={idx} className="flex items-start gap-2">
+                      <span className="text-pink-500 font-bold mt-0.5">•</span>
+                      <span>{sentence.trim()}</span>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {/* Retail/SNS 분석이 없을 경우 기존 요약 표시 */}
+            {!analysisData.retailAnalysis && !analysisData.snsAnalysis && analysisData.summary && (
+              <div>
+                <p className="text-sm text-slate-900 leading-relaxed font-medium">
+                  {analysisData.summary}
+                </p>
+              </div>
+            )}
 
             {/* 핵심 인사이트 */}
             {analysisData.insights.length > 0 && (
-              <div className="pt-3 border-t border-slate-200">
-                <h5 className="text-sm font-bold text-slate-900 mb-2">핵심 인사이트</h5>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="bg-gradient-to-br from-blue-50 to-indigo-50/80 border border-blue-200/80 rounded-xl p-4"
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <Sparkles className="w-5 h-5 text-blue-600" />
+                  <h5 className="text-lg font-bold text-blue-700">핵심 인사이트</h5>
+                </div>
                 <ul className="space-y-2">
                   {analysisData.insights.map((insight, idx) => (
                     <motion.li
                       key={idx}
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: idx * 0.1 }}
-                      className="flex items-start gap-2 text-xs text-slate-900"
+                      transition={{ delay: 0.3 + idx * 0.08 }}
+                      className="flex items-start gap-2 text-sm text-slate-800"
                     >
-                      <span className="text-rose-600 font-bold mt-0.5">•</span>
+                      <span className="text-blue-600 font-bold mt-0.5 min-w-[20px]">{idx + 1}.</span>
                       <span className="leading-relaxed">{insight}</span>
                     </motion.li>
                   ))}
                 </ul>
-              </div>
+              </motion.div>
             )}
 
             {/* 전략 제안 */}
             {analysisData.recommendations.length > 0 && (
-              <div className="pt-3 border-t border-slate-200">
-                <h5 className="text-sm font-bold text-slate-900 mb-2">전략 제안</h5>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="bg-gradient-to-br from-emerald-50 to-teal-50/80 border border-emerald-200/80 rounded-xl p-4"
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <Store className="w-5 h-5 text-emerald-600" />
+                  <h5 className="text-lg font-bold text-emerald-700">전략 제안</h5>
+                </div>
                 <ul className="space-y-2">
                   {analysisData.recommendations.map((rec, idx) => (
                     <motion.li
                       key={idx}
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: (analysisData.insights.length + idx) * 0.1 }}
-                      className="flex items-start gap-2 text-xs text-slate-900"
+                      transition={{ delay: 0.4 + idx * 0.08 }}
+                      className="flex items-start gap-2 text-sm text-slate-800"
                     >
                       <span className="text-emerald-600 font-bold mt-0.5">→</span>
                       <span className="leading-relaxed">{rec}</span>
                     </motion.li>
                   ))}
                 </ul>
-              </div>
+              </motion.div>
             )}
 
             <div className="flex justify-center pt-2">

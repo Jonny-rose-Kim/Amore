@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircle, X, Send, ImagePlus, Loader2, Trash2 } from 'lucide-react';
+import { X, Send, ImagePlus, Trash2, Maximize2, Minimize2, Move } from 'lucide-react';
 import { sendChatMessage, sendChatMultimodal, ChatMessage } from '../services/api';
 
 function generateSessionId(): string {
@@ -89,15 +89,81 @@ export default function ChatBot() {
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState(generateSessionId());
   const [isDragOver, setIsDragOver] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(true);
+
+  // 드래그 및 확대 관련 상태
+  const [position, setPosition] = useState({ x: 24, y: 24 }); // bottom-left 기준
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const chatWindowRef = useRef<HTMLDivElement>(null);
 
   // 스크롤 하단 고정
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // 드래그 이벤트 핸들러
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    // 헤더 영역에서만 드래그 시작
+    if ((e.target as HTMLElement).closest('.chat-drag-handle')) {
+      setIsDragging(true);
+      setDragStart({
+        x: e.clientX + position.x,
+        y: e.clientY + position.y,
+      });
+      e.preventDefault();
+    }
+  }, [position]);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging) return;
+
+    const newX = dragStart.x - e.clientX;
+    const newY = dragStart.y - e.clientY;
+
+    // 화면 밖으로 나가지 않도록 제한
+    const maxX = window.innerWidth - (isExpanded ? 700 : 480) - 10;
+    const maxY = window.innerHeight - (isExpanded ? 800 : 650) - 10;
+
+    setPosition({
+      x: Math.max(10, Math.min(maxX, newX)),
+      y: Math.max(10, Math.min(maxY, newY)),
+    });
+  }, [isDragging, dragStart, isExpanded]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  // 전역 마우스 이벤트 리스너
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp]);
+
+  // 더블클릭 확대/축소
+  const handleDoubleClick = useCallback(() => {
+    setIsExpanded(prev => !prev);
+  }, []);
+
+  // 추천 질문 목록
+  const suggestedQuestions = [
+    { icon: '🔥', text: '요즘 핫한 K-뷰티 트렌드는?' },
+    { icon: '🧴', text: '인기 성분 TOP 5 알려줘' },
+    { icon: '🌍', text: '미국에서 인기있는 제품은?' },
+    { icon: '💡', text: '신규 진출 추천 카테고리' },
+  ];
 
   // 채팅창 열릴 때 기본 인사 메시지
   useEffect(() => {
@@ -105,7 +171,7 @@ export default function ChatBot() {
       setMessages([{
         id: 'greeting',
         role: 'bot',
-        content: '안녕하세요! CLUE Bot입니다.\nK-뷰티 트렌드, 성분 분석, 시장 인사이트 등 궁금한 점을 자유롭게 물어보세요.\n이미지를 드래그하면 제품/트렌드 시각 분석도 가능합니다!',
+        content: '🤖 안녕하세요! CLUE Bot이에요!\n\n✨ K-뷰티 트렌드, 성분 분석, 시장 인사이트 등\n궁금한 점을 자유롭게 물어보세요!\n\n📸 이미지를 드래그하면 제품/트렌드 시각 분석도 가능해요!',
         timestamp: Date.now(),
       }]);
     }
@@ -120,6 +186,9 @@ export default function ChatBot() {
     setIsLoading(false);
     setSessionId(generateSessionId());
     setIsDragOver(false);
+    setShowSuggestions(true);
+    setPosition({ x: 24, y: 24 }); // 위치 초기화
+    setIsExpanded(false); // 크기 초기화
   }, []);
 
   // 이미지 파일 처리
@@ -232,12 +301,39 @@ export default function ChatBot() {
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={() => setIsOpen(true)}
-            className="fixed bottom-6 left-6 z-50 w-20 h-20 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-lg hover:shadow-2xl flex items-center justify-center transition-shadow"
+            className="fixed bottom-6 left-6 z-50 group"
           >
-            <MessageCircle className="w-9 h-9" />
+            {/* 메인 버튼 */}
+            <div className="relative w-16 h-16 rounded-full bg-gradient-to-br from-pink-400 via-rose-400 to-pink-500 shadow-lg hover:shadow-2xl flex items-center justify-center transition-all overflow-hidden">
+              {/* 채팅 말풍선 아이콘 */}
+              <div className="relative">
+                {/* 메인 말풍선 */}
+                <div className="w-9 h-7 bg-white rounded-xl relative shadow-inner">
+                  {/* 말풍선 꼬리 */}
+                  <div className="absolute -bottom-1.5 left-1.5 w-3 h-3 bg-white rounded-sm transform rotate-45" />
+                  {/* 채팅 점들 */}
+                  <div className="absolute inset-0 flex items-center justify-center gap-1">
+                    <div className="w-1.5 h-1.5 bg-pink-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <div className="w-1.5 h-1.5 bg-pink-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <div className="w-1.5 h-1.5 bg-pink-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </div>
+                </div>
+              </div>
+              {/* 반짝이는 효과 */}
+              <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
+            {/* 말풍선 툴팁 */}
+            <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 bg-white rounded-xl px-3 py-2 shadow-lg border border-slate-100 opacity-0 group-hover:opacity-100 transition-all transform group-hover:translate-x-0 translate-x-2 whitespace-nowrap pointer-events-none">
+              <div className="text-xs font-medium text-slate-700">AI에게 물어보세요! 💬</div>
+              <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-2 h-2 bg-white border-l border-b border-slate-100 rotate-45" />
+            </div>
+            {/* 온라인 표시 */}
+            <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center shadow-md border-2 border-white">
+              <span className="text-[8px] font-bold text-white">AI</span>
+            </div>
           </motion.button>
         )}
       </AnimatePresence>
@@ -246,24 +342,61 @@ export default function ChatBot() {
       <AnimatePresence>
         {isOpen && (
           <motion.div
+            ref={chatWindowRef}
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed bottom-6 left-6 z-50 w-[480px] h-[650px] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden"
+            className={`fixed z-50 bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden transition-all duration-300 ${isDragging ? 'cursor-grabbing' : ''}`}
+            style={{
+              left: position.x,
+              bottom: position.y,
+              width: isExpanded ? '700px' : '480px',
+              height: isExpanded ? '800px' : '650px',
+            }}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
+            onMouseDown={handleMouseDown}
           >
-            {/* 헤더 */}
-            <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <MessageCircle className="w-5 h-5" />
-                <span className="font-semibold text-sm">AMORE CLUE AI</span>
+            {/* 헤더 - 드래그 핸들 */}
+            <div
+              className="chat-drag-handle flex items-center justify-between px-4 py-3 bg-gradient-to-r from-pink-500 via-rose-500 to-pink-600 text-white flex-shrink-0 shadow-md cursor-grab active:cursor-grabbing select-none"
+              onDoubleClick={handleDoubleClick}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm overflow-hidden border-2 border-white/30 shadow-inner">
+                  <img
+                    src="/images/amore_clue.png"
+                    alt="CLUE Bot"
+                    className="w-full h-full object-cover pointer-events-none"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-bold text-sm tracking-wide">AMORE CLUE AI</span>
+                  <span className="text-[10px] text-white/80 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
+                    온라인
+                    <span className="mx-1">·</span>
+                    <Move className="w-3 h-3 inline" />
+                    <span className="text-white/60">드래그로 이동</span>
+                  </span>
+                </div>
               </div>
               <div className="flex items-center gap-1">
                 <button
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsExpanded(prev => !prev);
+                  }}
+                  className="p-1.5 rounded-lg hover:bg-white/20 transition-colors"
+                  title={isExpanded ? "축소" : "확대"}
+                >
+                  {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setMessages([]);
                     setSessionId(generateSessionId());
                   }}
@@ -273,7 +406,10 @@ export default function ChatBot() {
                   <Trash2 className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={handleClose}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleClose();
+                  }}
                   className="p-1.5 rounded-lg hover:bg-white/20 transition-colors"
                   title="닫기"
                 >
@@ -283,43 +419,81 @@ export default function ChatBot() {
             </div>
 
             {/* 메시지 영역 */}
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-gradient-to-b from-slate-50/50 to-white">
               {messages.map((msg) => (
                 <div
                   key={msg.id}
-                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  className={`flex items-end gap-2 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
                 >
-                  <div
-                    className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 ${
-                      msg.role === 'user'
-                        ? 'bg-gradient-to-r from-pink-500 to-rose-500 text-white'
-                        : 'bg-slate-50 border border-slate-200 text-slate-700'
-                    }`}
-                  >
-                    {/* 이미지 미리보기 */}
-                    {msg.image && (
-                      <img
-                        src={msg.image}
-                        alt="첨부 이미지"
-                        className="max-w-full max-h-40 rounded-lg mb-2 object-cover"
-                      />
-                    )}
-                    {/* 메시지 내용 */}
+                  {/* 아바타 */}
+                  <div className={`flex-shrink-0 ${msg.role === 'user' ? 'mb-1' : 'mb-1'}`}>
                     {msg.role === 'bot' ? (
-                      <FormattedResponse text={msg.content} />
+                      <div className="w-9 h-9 rounded-full bg-white shadow-md border-2 border-pink-100 overflow-hidden flex items-center justify-center">
+                        <img
+                          src="/images/amore_clue.png"
+                          alt="CLUE Bot"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
                     ) : (
-                      <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-sky-100 to-blue-200 shadow-md flex items-center justify-center border-2 border-sky-200">
+                        <span className="text-base">😊</span>
+                      </div>
                     )}
+                  </div>
+
+                  {/* 메시지 말풍선 */}
+                  <div className={`relative max-w-[78%] group`}>
+                    <div
+                      className={`relative rounded-2xl px-4 py-3 shadow-sm ${
+                        msg.role === 'user'
+                          ? 'bg-gradient-to-br from-sky-400 to-blue-400 text-white rounded-br-md shadow-md'
+                          : 'bg-white border border-slate-100 text-slate-700 rounded-bl-md shadow-md'
+                      }`}
+                    >
+                      {/* 이미지 미리보기 */}
+                      {msg.image && (
+                        <img
+                          src={msg.image}
+                          alt="첨부 이미지"
+                          className="max-w-full max-h-40 rounded-lg mb-2 object-cover shadow-sm"
+                        />
+                      )}
+                      {/* 메시지 내용 */}
+                      {msg.role === 'bot' ? (
+                        <FormattedResponse text={msg.content} />
+                      ) : (
+                        <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                      )}
+                    </div>
+                    {/* 시간 표시 (hover시) */}
+                    <div className={`absolute bottom-0 ${msg.role === 'user' ? 'right-full mr-2' : 'left-full ml-2'} opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-slate-400 whitespace-nowrap`}>
+                      {new Date(msg.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                    </div>
                   </div>
                 </div>
               ))}
 
               {/* 로딩 인디케이터 */}
               {isLoading && (
-                <div className="flex justify-start">
-                  <div className="bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 text-pink-500 animate-spin" />
-                    <span className="text-xs text-slate-500">답변 생성 중...</span>
+                <div className="flex items-end gap-2">
+                  {/* 봇 아바타 */}
+                  <div className="flex-shrink-0 mb-1">
+                    <div className="w-9 h-9 rounded-full bg-white shadow-md border-2 border-pink-100 overflow-hidden flex items-center justify-center">
+                      <img
+                        src="/images/amore_clue.png"
+                        alt="CLUE Bot"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  </div>
+                  <div className="bg-white border border-slate-100 rounded-2xl rounded-bl-md shadow-md px-4 py-3 flex items-center gap-2">
+                    <div className="flex gap-1">
+                      <span className="w-2 h-2 bg-pink-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                      <span className="w-2 h-2 bg-pink-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                      <span className="w-2 h-2 bg-pink-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                    </div>
+                    <span className="text-xs text-slate-400 ml-1">답변 생성 중...</span>
                   </div>
                 </div>
               )}
@@ -352,6 +526,68 @@ export default function ChatBot() {
                   >
                     <X className="w-3 h-3" />
                   </button>
+                </div>
+              </div>
+            )}
+
+            {/* 추천 질문 */}
+            {showSuggestions && !isLoading && (
+              <div className="px-4 py-3 border-t border-slate-100 flex-shrink-0 bg-gradient-to-r from-slate-50 to-pink-50/30">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[11px] text-slate-400 font-medium">💡 이런 질문은 어때요?</p>
+                  <button
+                    onClick={() => setShowSuggestions(false)}
+                    className="text-slate-300 hover:text-slate-500 transition-colors p-0.5 rounded hover:bg-slate-100"
+                    title="추천 질문 숨기기"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {suggestedQuestions.map((q, idx) => (
+                    <button
+                      key={idx}
+                      onClick={async () => {
+                        // 바로 전송
+                        const userMessage: ChatMessage = {
+                          id: `msg_${Date.now()}`,
+                          role: 'user',
+                          content: q.text,
+                          timestamp: Date.now(),
+                        };
+                        setMessages(prev => [...prev, userMessage]);
+                        setIsLoading(true);
+
+                        try {
+                          const result = await sendChatMessage({
+                            message: q.text,
+                            sessionId,
+                          });
+                          const botMessage: ChatMessage = {
+                            id: `msg_${Date.now()}_bot`,
+                            role: 'bot',
+                            content: result.success ? result.response : (result.error || '응답 생성에 실패했습니다.'),
+                            timestamp: Date.now(),
+                          };
+                          setMessages(prev => [...prev, botMessage]);
+                        } catch {
+                          const errorMessage: ChatMessage = {
+                            id: `msg_${Date.now()}_err`,
+                            role: 'bot',
+                            content: '서버와의 연결에 실패했습니다. 잠시 후 다시 시도해주세요.',
+                            timestamp: Date.now(),
+                          };
+                          setMessages(prev => [...prev, errorMessage]);
+                        } finally {
+                          setIsLoading(false);
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-full text-xs text-slate-600 hover:border-pink-300 hover:bg-pink-50 hover:text-pink-600 transition-all shadow-sm hover:shadow active:scale-95"
+                    >
+                      <span>{q.icon}</span>
+                      <span>{q.text}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
             )}

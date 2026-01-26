@@ -10,7 +10,7 @@ interface InsightPanelProps {
   selectedBubbleItem: BubbleItem | null;
   selectedTrendItem: TrendItem | null;
   selectedBubbleItemRank?: number; // 리더보드에서의 등수
-  selectedBubbleItemType?: 'ingredient' | 'formula' | 'effect'; // 리더보드 타입
+  selectedBubbleItemType?: 'ingredient' | 'formula' | 'effect' | 'visual' | 'combined'; // 리더보드 타입
   country?: string;
   category?: string;
   onOpenModal: () => void;
@@ -97,45 +97,35 @@ export default function InsightPanel({ selectedInsight, selectedBubbleItem, sele
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">
                   {selectedBubbleItemType && (
-                    <span className={`px-3 py-1.5 rounded-lg border backdrop-blur-sm text-sm font-semibold ${
-                      selectedBubbleItemType === 'ingredient' 
-                        ? 'bg-pink-400/80 text-slate-900 border-pink-500 font-semibold' 
-                        : selectedBubbleItemType === 'formula'
-                        ? 'bg-rose-400/80 text-slate-900 border-rose-500 font-semibold'
-                        : 'bg-coral-400/80 text-slate-900 border-coral-500 font-semibold'
-                    }`}>
-                      {selectedBubbleItemType === 'ingredient' ? '🧪 성분' : selectedBubbleItemType === 'formula' ? '💧 제형' : '✨ 효과'}
-                    </span>
+                    <>
+                      <span className={`px-3 py-1.5 rounded-lg border backdrop-blur-sm text-sm font-semibold ${
+                        selectedBubbleItemType === 'ingredient'
+                          ? 'bg-pink-400/80 text-slate-900 border-pink-500 font-semibold'
+                          : selectedBubbleItemType === 'formula'
+                          ? 'bg-rose-400/80 text-slate-900 border-rose-500 font-semibold'
+                          : 'bg-coral-400/80 text-slate-900 border-coral-500 font-semibold'
+                      }`}>
+                        {selectedBubbleItemType === 'ingredient' ? '🧪 성분' : selectedBubbleItemType === 'formula' ? '💧 제형' : '✨ 효과'}
+                      </span>
+                      {/* 트렌드 상태 태그 */}
+                      {selectedBubbleItem?.status && (
+                        <span className={`px-3 py-1.5 rounded-lg border text-sm font-extrabold ${
+                          selectedBubbleItem.status.includes('Early')
+                            ? 'bg-emerald-100 text-emerald-800 border-emerald-400'
+                            : selectedBubbleItem.status.includes('Growing')
+                            ? 'bg-blue-100 text-blue-800 border-blue-400'
+                            : selectedBubbleItem.status.includes('Actionable')
+                            ? 'bg-orange-100 text-orange-800 border-orange-400'
+                            : 'bg-slate-100 text-slate-700 border-slate-400'
+                        }`}>
+                          {selectedBubbleItem.status}
+                        </span>
+                      )}
+                    </>
                   )}
                   {selectedTrendItem && (
                     <span className="px-3 py-1.5 rounded-lg border backdrop-blur-sm text-sm font-semibold bg-purple-400/80 text-slate-900 border-purple-500">
                       🧩 꿀조합
-                    </span>
-                  )}
-                  {selectedBubbleItem?.status && (
-                    <span className={`px-3 py-1.5 rounded-lg border backdrop-blur-sm text-sm font-semibold ${
-                      selectedBubbleItem.status.includes('Actionable Trend')
-                        ? 'bg-orange-400/80 text-slate-900 border-orange-500 font-semibold'
-                        : selectedBubbleItem.status.includes('Growing Trend')
-                        ? 'bg-emerald-400/80 text-slate-900 border-emerald-500 font-semibold'
-                        : selectedBubbleItem.status.includes('Early Trend')
-                        ? 'bg-violet-400/80 text-slate-900 border-violet-500 font-semibold'
-                        : 'bg-slate-300/80 text-slate-900 border-slate-400 font-semibold'
-                    }`}>
-                      {selectedBubbleItem.status}
-                    </span>
-                  )}
-                  {selectedTrendItem?.status && (
-                    <span className={`px-3 py-1.5 rounded-lg border backdrop-blur-sm text-sm font-semibold ${
-                      selectedTrendItem.status.includes('Actionable Trend')
-                        ? 'bg-orange-400/80 text-slate-900 border-orange-500 font-semibold'
-                        : selectedTrendItem.status.includes('Growing Trend')
-                        ? 'bg-emerald-400/80 text-slate-900 border-emerald-500 font-semibold'
-                        : selectedTrendItem.status.includes('Early Trend')
-                        ? 'bg-violet-400/80 text-slate-900 border-violet-500 font-semibold'
-                        : 'bg-slate-300/80 text-slate-900 border-slate-400 font-semibold'
-                    }`}>
-                      {selectedTrendItem.status}
                     </span>
                   )}
                 </div>
@@ -168,7 +158,7 @@ export default function InsightPanel({ selectedInsight, selectedBubbleItem, sele
         <div className="flex gap-3 mb-5">
           <button
             onClick={handleCategoryAnalysisClick}
-            className={`flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all ${
+            className={`flex-1 inline-flex items-center justify-center gap-2 px-4 py-5 rounded-xl text-sm font-bold transition-all ${
               analysisMode === 'category'
                 ? 'bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-lg shadow-rose-500/30'
                 : 'bg-rose-50 text-rose-700 border-2 border-rose-200 hover:bg-rose-100 hover:border-rose-300'
@@ -180,7 +170,7 @@ export default function InsightPanel({ selectedInsight, selectedBubbleItem, sele
           <button
             onClick={handleKeywordAnalysisClick}
             disabled={!hasContent}
-            className={`flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all ${
+            className={`flex-1 inline-flex items-center justify-center gap-2 px-4 py-5 rounded-xl text-sm font-bold transition-all ${
               analysisMode === 'keyword'
                 ? 'bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-lg shadow-rose-500/30'
                 : !hasContent
@@ -221,6 +211,7 @@ export default function InsightPanel({ selectedInsight, selectedBubbleItem, sele
               Retail: Math.round((selectedBubbleItem?.value || 70) * 0.85),
               Review: Math.round((selectedBubbleItem?.value || 70) * 0.8),
             }}
+            reviewKeywords={selectedBubbleItem?.reviewKeywords || selectedTrendItem?.reviewKeywords}
             onClose={handleKeywordAnalysisClick}
           />
         )}

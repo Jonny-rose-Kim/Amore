@@ -1,8 +1,8 @@
 import { motion } from 'framer-motion';
-import { Sparkles, Loader2, Bot } from 'lucide-react';
+import { Sparkles, Loader2, Bot, Zap, ArrowRight } from 'lucide-react';
 import { OverseasProduct } from './OverseasProductList';
 import { DomesticProduct } from './DomesticProductList';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { fetchWhitespaceProductAnalysis } from '../services/api';
 
 interface ProductComparisonProps {
@@ -45,72 +45,251 @@ export default function ProductComparison({ overseasProduct, domesticProduct, co
   const [comparisonResult, setComparisonResult] = useState<ComparisonResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (overseasProduct && domesticProduct) {
-      setIsAnalyzing(true);
-      setError(null);
-      setComparisonResult(null);
+  const startAnalysis = () => {
+    if (!overseasProduct || !domesticProduct) return;
 
-      fetchWhitespaceProductAnalysis({
-        overseasProduct: {
-          name: overseasProduct.name,
-          brand: overseasProduct.brand,
-          category: overseasProduct.category,
-          price: overseasProduct.price || '',
-          rating: overseasProduct.rating || 0,
-          reviewCount: overseasProduct.reviewCount || 0,
-        },
-        domesticProduct: {
-          name: domesticProduct.name,
-          brand: domesticProduct.brand,
-          category: domesticProduct.category,
-          price: domesticProduct.price || '',
-          rating: domesticProduct.rating || 0,
-          reviewCount: domesticProduct.reviewCount || 0,
-        },
-        country,
+    setIsAnalyzing(true);
+    setError(null);
+    setComparisonResult(null);
+
+    fetchWhitespaceProductAnalysis({
+      overseasProduct: {
+        name: overseasProduct.name,
+        brand: overseasProduct.brand,
         category: overseasProduct.category,
-      }).then(result => {
-        if (result.success) {
-          setComparisonResult({
-            overseasSummary: result.overseasSummary,
-            domesticSummary: result.domesticSummary,
-            overseasImage: overseasProduct.image,
-            domesticImage: domesticProduct.image,
-            agentInsight: result.agentInsight,
-          });
-        } else {
-          setError(result.error || 'AI 분석에 실패했습니다.');
-        }
-        setIsAnalyzing(false);
-      }).catch(err => {
-        setError(String(err));
-        setIsAnalyzing(false);
-      });
-    } else {
-      setComparisonResult(null);
-      setError(null);
-    }
-  }, [overseasProduct, domesticProduct, country]);
+        price: overseasProduct.price || '',
+        rating: overseasProduct.rating || 0,
+        reviewCount: overseasProduct.reviewCount || 0,
+      },
+      domesticProduct: {
+        name: domesticProduct.name,
+        brand: domesticProduct.brand,
+        category: domesticProduct.category,
+        price: domesticProduct.price || '',
+        rating: domesticProduct.rating || 0,
+        reviewCount: domesticProduct.reviewCount || 0,
+      },
+      country,
+      category: overseasProduct.category,
+    }).then(result => {
+      if (result.success) {
+        setComparisonResult({
+          overseasSummary: result.overseasSummary,
+          domesticSummary: result.domesticSummary,
+          overseasImage: overseasProduct.image,
+          domesticImage: domesticProduct.image,
+          agentInsight: result.agentInsight,
+        });
+      } else {
+        setError(result.error || 'AI 분석에 실패했습니다.');
+      }
+      setIsAnalyzing(false);
+    }).catch(err => {
+      setError(String(err));
+      setIsAnalyzing(false);
+    });
+  };
 
-  if (!overseasProduct || !domesticProduct) {
+  // 제품이 하나도 선택되지 않은 경우
+  if (!overseasProduct && !domesticProduct) {
     return (
-      <div className="bg-white/95 backdrop-blur-sm border border-slate-200/80 rounded-xl p-6 shadow-xl h-full flex items-center justify-center">
-        <p className="text-slate-500 text-center">
-          해당 국가 인기 제품과 한국 인기 제품을 각각 선택하면<br />
-          AI 비교 분석 결과가 표시됩니다.
-        </p>
+      <div className="bg-gradient-to-br from-slate-50 to-rose-50/30 backdrop-blur-sm border border-slate-200/80 rounded-xl p-8 shadow-xl h-full flex items-center justify-center">
+        <div className="text-center max-w-sm">
+          <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-rose-100 to-purple-100 rounded-2xl flex items-center justify-center shadow-inner">
+            <Sparkles className="w-10 h-10 text-rose-400" />
+          </div>
+          <h4 className="text-slate-800 font-bold text-lg mb-3">AI 제품 비교 분석</h4>
+          <p className="text-slate-500 text-sm leading-relaxed">
+            양쪽 리스트에서 비교할 제품을 선택해주세요.<br />
+            <span className="text-rose-500 font-medium">AI가 두 제품의 차이점과 인사이트를 분석</span>해 드립니다.
+          </p>
+          <div className="flex items-center justify-center gap-4 mt-6">
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <div className="w-3 h-3 rounded-full bg-blue-400"></div>
+              해외 제품
+            </div>
+            <div className="text-slate-300">→</div>
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <div className="w-3 h-3 rounded-full bg-rose-400"></div>
+              K-Beauty 제품
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 두 제품이 모두 선택되었지만 아직 분석 시작 전 - 제품 미리보기와 버튼 표시
+  if (overseasProduct && domesticProduct && !isAnalyzing && !comparisonResult && !error) {
+    return (
+      <div className="bg-gradient-to-br from-violet-50 to-rose-50 backdrop-blur-sm border border-violet-200/80 rounded-xl p-6 shadow-xl h-full flex flex-col">
+        <div className="flex items-center gap-2 mb-4">
+          <Sparkles className="w-5 h-5 text-violet-500" />
+          <h4 className="text-slate-800 font-bold text-lg">AI 제품 비교 분석</h4>
+        </div>
+
+        {/* 두 제품 미리보기 */}
+        <div className="flex-1 flex items-center justify-center gap-6">
+          {/* 해외 제품 */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="text-center"
+          >
+            <div className="w-28 h-28 rounded-2xl overflow-hidden border-3 border-blue-400 shadow-lg mb-3 mx-auto bg-white">
+              {overseasProduct.image ? (
+                <img src={overseasProduct.image} alt={overseasProduct.name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-blue-100">
+                  <span className="text-4xl">🌍</span>
+                </div>
+              )}
+            </div>
+            <p className="text-blue-600 font-semibold text-sm">{overseasProduct.brand}</p>
+            <p className="text-slate-700 text-xs mt-0.5 max-w-[120px] truncate">{overseasProduct.name}</p>
+          </motion.div>
+
+          {/* VS 표시 */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.2 }}
+            className="flex flex-col items-center"
+          >
+            <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-rose-500 rounded-full flex items-center justify-center shadow-lg">
+              <span className="text-white font-bold text-sm">VS</span>
+            </div>
+          </motion.div>
+
+          {/* 한국 제품 */}
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="text-center"
+          >
+            <div className="w-28 h-28 rounded-2xl overflow-hidden border-3 border-rose-400 shadow-lg mb-3 mx-auto bg-white">
+              {domesticProduct.image ? (
+                <img src={domesticProduct.image} alt={domesticProduct.name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-rose-100">
+                  <span className="text-4xl">🇰🇷</span>
+                </div>
+              )}
+            </div>
+            <p className="text-rose-600 font-semibold text-sm">{domesticProduct.brand}</p>
+            <p className="text-slate-700 text-xs mt-0.5 max-w-[120px] truncate">{domesticProduct.name}</p>
+          </motion.div>
+        </div>
+
+        {/* 분석 버튼 */}
+        <div className="text-center mt-4">
+          <motion.button
+            onClick={startAnalysis}
+            className="relative inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-violet-600 to-rose-600 text-white font-bold text-lg rounded-2xl shadow-xl hover:shadow-2xl transition-all"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <motion.div
+              className="absolute inset-0 bg-gradient-to-r from-violet-400 to-rose-400 rounded-2xl"
+              animate={{ opacity: [0, 0.5, 0] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+            />
+            <motion.div
+              animate={{ rotate: [0, 15, -15, 0] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            >
+              <Sparkles className="w-6 h-6 relative z-10" />
+            </motion.div>
+            <span className="relative z-10">AI 비교 분석 시작</span>
+            <ArrowRight className="w-5 h-5 relative z-10" />
+          </motion.button>
+          <p className="text-slate-500 text-xs mt-2">
+            클릭하면 AI가 두 제품을 심층 분석합니다
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // 하나의 제품만 선택된 경우
+  if (!overseasProduct || !domesticProduct) {
+    const selectedProduct = overseasProduct || domesticProduct;
+    const isOverseas = !!overseasProduct;
+
+    return (
+      <div className="bg-gradient-to-br from-slate-50 to-rose-50/30 backdrop-blur-sm border border-slate-200/80 rounded-xl p-6 shadow-xl h-full flex flex-col">
+        <div className="flex items-center gap-2 mb-4">
+          <Sparkles className="w-5 h-5 text-rose-400" />
+          <h4 className="text-slate-800 font-bold text-lg">AI 제품 비교 분석</h4>
+        </div>
+
+        <div className="flex-1 flex flex-col items-center justify-center">
+          {/* 선택된 제품 표시 */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className={`w-24 h-24 rounded-2xl overflow-hidden border-3 shadow-lg mb-4 ${
+              isOverseas ? 'border-blue-400' : 'border-rose-400'
+            }`}
+          >
+            {selectedProduct?.image ? (
+              <img src={selectedProduct.image} alt={selectedProduct.name} className="w-full h-full object-cover" />
+            ) : (
+              <div className={`w-full h-full flex items-center justify-center ${isOverseas ? 'bg-blue-100' : 'bg-rose-100'}`}>
+                <span className="text-3xl">{isOverseas ? '🌍' : '🇰🇷'}</span>
+              </div>
+            )}
+          </motion.div>
+
+          <p className={`text-sm font-medium mb-1 ${isOverseas ? 'text-blue-600' : 'text-rose-600'}`}>
+            {selectedProduct?.brand}
+          </p>
+          <p className="text-slate-700 text-sm mb-6">{selectedProduct?.name}</p>
+
+          {/* 안내 메시지 */}
+          <div className="text-center">
+            <motion.div
+              animate={{ y: [0, -5, 0] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+              className={`w-12 h-12 mx-auto mb-3 rounded-full flex items-center justify-center ${
+                isOverseas ? 'bg-rose-100' : 'bg-blue-100'
+              }`}
+            >
+              <span className="text-2xl">{isOverseas ? '🇰🇷' : '🌍'}</span>
+            </motion.div>
+            <p className="text-slate-500 text-sm">
+              {isOverseas ? (
+                <>왼쪽에서 <span className="text-rose-500 font-medium">K-Beauty 제품</span>을 선택해주세요</>
+              ) : (
+                <>왼쪽에서 <span className="text-blue-500 font-medium">해외 제품</span>을 선택해주세요</>
+              )}
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (isAnalyzing) {
     return (
-      <div className="bg-white/95 backdrop-blur-sm border border-slate-200/80 rounded-xl p-6 shadow-xl h-full flex items-center justify-center">
+      <div className="bg-gradient-to-br from-purple-50 to-indigo-50 backdrop-blur-sm border border-purple-200/80 rounded-xl p-8 shadow-xl h-full flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 text-rose-500 animate-spin mx-auto mb-4" />
-          <p className="text-slate-700 font-semibold">AI 비교 분석 중...</p>
-          <p className="text-slate-500 text-sm mt-2">두 제품을 종합적으로 분석하고 있습니다.</p>
+          <div className="relative w-24 h-24 mx-auto mb-6">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-400 to-rose-400 rounded-2xl animate-pulse opacity-20"></div>
+            <div className="absolute inset-2 bg-white rounded-xl flex items-center justify-center shadow-lg">
+              <Bot className="w-10 h-10 text-purple-500" />
+            </div>
+            <Loader2 className="absolute -top-2 -right-2 w-8 h-8 text-rose-500 animate-spin" />
+          </div>
+          <h4 className="text-slate-800 font-bold text-lg mb-2">AI가 분석 중입니다</h4>
+          <p className="text-slate-500 text-sm">
+            두 제품의 특성을 비교하고 인사이트를 도출하고 있어요
+          </p>
+          <div className="flex justify-center gap-1 mt-4">
+            <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+            <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+            <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+          </div>
         </div>
       </div>
     );
@@ -122,6 +301,15 @@ export default function ProductComparison({ overseasProduct, domesticProduct, co
         <div className="text-center">
           <p className="text-red-600 font-semibold mb-2">분석 오류</p>
           <p className="text-slate-500 text-sm">{error}</p>
+          <button
+            onClick={() => {
+              setError(null);
+              setComparisonResult(null);
+            }}
+            className="mt-4 px-4 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors text-sm"
+          >
+            다시 시도
+          </button>
         </div>
       </div>
     );

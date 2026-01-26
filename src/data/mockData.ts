@@ -5,7 +5,7 @@ export interface TrendSignal {
   data: { name: string; value: number }[];
 }
 
-export type TrendStatus = '🌱 Early Trend' | '📈 Growing Trend' | '🚀 Actionable Trend' | '📉 Cooling';
+export type TrendStatus = '🌱 Early Trend' | '🚀 Growing Trend' | '🔥 Actionable Trend' | '📉 Cooling';
 
 export interface ReviewKeywords {
   positive: { keyword: string; count: number }[];
@@ -127,6 +127,7 @@ export interface BubbleItem {
   size: number;
   value: number;
   status?: TrendStatus; // Early Trend, Growing Trend, Actionable Trend, Cooling
+  trendLevel?: TrendLevel; // Early, Growing, Actionable - 이모지 매핑용
   actionGuide?: string; // 트렌드 단계별 기획자 참고 방향성 힌트
   combinationReason?: string; // 꿀조합인 이유 설명 (SNS/리테일/리뷰 데이터 기반)
   evidence?: TrendEvidence; // AI 근거 설명 데이터
@@ -135,7 +136,7 @@ export interface BubbleItem {
 }
 
 // 새로운 데이터 구조 타입 정의
-export type MainCategory = 'Skincare' | 'Cleansing' | 'Sun Care' | 'Makeup' | 'Hair Care' | 'Body Care' | 'Mens Care';
+export type MainCategory = 'Skincare' | 'Cleansing' | 'Sun Care' | 'Makeup' | 'Hair Care' | 'Body Care' | 'Mens Care' | 'Haircare' | 'Bodycare';
 export type ItemType = 'Ingredients' | 'Texture' | 'Effects' | 'Visual/Mood' | 'Combined';
 export type TrendLevel = 'Actionable' | 'Growing' | 'Early';
 
@@ -159,6 +160,9 @@ export interface ReportResult {
   type: 'marketing' | 'npd' | 'overseas';
   content: string;
   sources?: { title: string; source: string }[];
+  scope?: 'keyword' | 'category';
+  keyword?: string;
+  category?: string;
 }
 
 export const trendData: TrendItem[] = [
@@ -166,7 +170,7 @@ export const trendData: TrendItem[] = [
     rank: 1,
     category: 'Skincare',
     combination: '레티놀 + 앰플 + 모공 케어',
-    status: '🚀 Actionable Trend',
+    status: '🔥 Actionable Trend',
     trendType: 'Actionable Trend',
     signals: [
       {
@@ -224,7 +228,7 @@ export const trendData: TrendItem[] = [
     rank: 2,
     category: 'Suncare',
     combination: '아연옥사이드 + 선스틱 + 끈적임 없는',
-    status: '📈 Growing Trend',
+    status: '🚀 Growing Trend',
     trendType: 'Actionable Trend',
     signals: [
       {
@@ -342,7 +346,7 @@ export const trendData: TrendItem[] = [
     rank: 4,
     category: 'Makeup',
     combination: '히알루론산 + 쿠션 + 광채',
-    status: '📈 Growing Trend',
+    status: '🚀 Growing Trend',
     signals: [
       {
         type: 'SNS',
@@ -400,7 +404,7 @@ export const trendData: TrendItem[] = [
     rank: 5,
     category: 'Skincare',
     combination: '판테놀 + 크림 + 장벽 강화',
-    status: '🚀 Actionable Trend',
+    status: '🔥 Actionable Trend',
     signals: [
       {
         type: 'SNS',
@@ -458,7 +462,7 @@ export const trendData: TrendItem[] = [
     rank: 6,
     category: 'Menscare',
     combination: '시카 + 올인원 + 진정',
-    status: '📈 Growing Trend',
+    status: '🚀 Growing Trend',
     signals: [
       {
         type: 'SNS',
@@ -558,7 +562,7 @@ export const trendDataOverseas: TrendItem[] = [
     rank: 1,
     category: 'Skincare',
     combination: '레티놀 + 세럼 + 안티에이징',
-    status: '🚀 Actionable Trend',
+    status: '🔥 Actionable Trend',
     signals: [
       {
         type: 'SNS',
@@ -614,7 +618,7 @@ export const trendDataOverseas: TrendItem[] = [
     rank: 2,
     category: 'Suncare',
     combination: '아연옥사이드 + 선크림 + 끈적임 없는',
-    status: '📈 Growing Trend',
+    status: '🚀 Growing Trend',
     signals: [
       {
         type: 'SNS',
@@ -726,7 +730,7 @@ export const trendDataOverseas: TrendItem[] = [
     rank: 4,
     category: 'Makeup',
     combination: '히알루론산 + 파운데이션 + 광채',
-    status: '📈 Growing Trend',
+    status: '🚀 Growing Trend',
     signals: [
       {
         type: 'SNS',
@@ -782,7 +786,7 @@ export const trendDataOverseas: TrendItem[] = [
     rank: 5,
     category: 'Skincare',
     combination: '펩타이드 + 모이스처라이저 + 안티에이징',
-    status: '🚀 Actionable Trend',
+    status: '🔥 Actionable Trend',
     signals: [
       {
         type: 'SNS',
@@ -838,7 +842,7 @@ export const trendDataOverseas: TrendItem[] = [
     rank: 6,
     category: 'Skincare',
     combination: '비타민C + 세럼 + 미백',
-    status: '📈 Growing Trend',
+    status: '🚀 Growing Trend',
     signals: [
       {
         type: 'SNS',
@@ -894,7 +898,7 @@ export const trendDataOverseas: TrendItem[] = [
     rank: 7,
     category: 'Skincare',
     combination: '세라마이드 + 리페어 + 장벽 강화',
-    status: '🚀 Actionable Trend',
+    status: '🔥 Actionable Trend',
     signals: [
       {
         type: 'SNS',
@@ -954,7 +958,7 @@ export const singleKeywordData: TrendItem[] = [
     rank: 1,
     category: 'Ingredient',
     combination: '레티놀',
-    status: '🚀 Actionable Trend',
+    status: '🔥 Actionable Trend',
     signals: [
       {
         type: 'SNS',
@@ -1010,7 +1014,7 @@ export const singleKeywordData: TrendItem[] = [
     rank: 2,
     category: 'Ingredient',
     combination: '판테놀',
-    status: '🚀 Actionable Trend',
+    status: '🔥 Actionable Trend',
     signals: [
       {
         type: 'SNS',
@@ -1066,7 +1070,7 @@ export const singleKeywordData: TrendItem[] = [
     rank: 3,
     category: 'Formula',
     combination: '앰플',
-    status: '📈 Growing Trend',
+    status: '🚀 Growing Trend',
     signals: [
       {
         type: 'SNS',
@@ -1114,7 +1118,7 @@ export const singleKeywordData: TrendItem[] = [
     rank: 4,
     category: 'Ingredient',
     combination: '시카',
-    status: '📈 Growing Trend',
+    status: '🚀 Growing Trend',
     signals: [
       {
         type: 'SNS',
@@ -1162,7 +1166,7 @@ export const singleKeywordData: TrendItem[] = [
     rank: 5,
     category: 'Formula',
     combination: '크림',
-    status: '📈 Growing Trend',
+    status: '🚀 Growing Trend',
     signals: [
       {
         type: 'SNS',
@@ -1258,7 +1262,7 @@ export const singleKeywordData: TrendItem[] = [
     rank: 7,
     category: 'Effect',
     combination: '장벽 강화',
-    status: '🚀 Actionable Trend',
+    status: '🔥 Actionable Trend',
     signals: [
       {
         type: 'SNS',
@@ -1307,19 +1311,19 @@ export const singleKeywordData: TrendItem[] = [
 // 국내 Bubble Chart 데이터
 export const bubbleDataDomestic: BubbleItem[] = [
   // 성분
-  { id: '1', name: '레티놀', type: 'ingredient', x: 20, y: 30, size: 85, value: 95, status: '🚀 Actionable Trend' },
-  { id: '2', name: '판테놀', type: 'ingredient', x: 35, y: 45, size: 75, value: 90, status: '🚀 Actionable Trend' },
+  { id: '1', name: '레티놀', type: 'ingredient', x: 20, y: 30, size: 85, value: 95, status: '🔥 Actionable Trend' },
+  { id: '2', name: '판테놀', type: 'ingredient', x: 35, y: 45, size: 75, value: 90, status: '🔥 Actionable Trend' },
   { id: '3', name: '시카', type: 'ingredient', x: 50, y: 25, size: 65, value: 78, status: '🌱 Early Trend' },
-  { id: '4', name: '히알루론산', type: 'ingredient', x: 25, y: 60, size: 70, value: 82, status: '📈 Growing Trend' },
+  { id: '4', name: '히알루론산', type: 'ingredient', x: 25, y: 60, size: 70, value: 82, status: '🚀 Growing Trend' },
   { id: '5', name: '나이아신아마이드', type: 'ingredient', x: 60, y: 40, size: 60, value: 75, status: '🌱 Early Trend' },
   // 제형
-  { id: '6', name: '앰플', type: 'formula', x: 70, y: 35, size: 80, value: 88, status: '📈 Growing Trend' },
-  { id: '7', name: '크림', type: 'formula', x: 80, y: 55, size: 90, value: 97, status: '🚀 Actionable Trend' },
+  { id: '6', name: '앰플', type: 'formula', x: 70, y: 35, size: 80, value: 88, status: '🚀 Growing Trend' },
+  { id: '7', name: '크림', type: 'formula', x: 80, y: 55, size: 90, value: 97, status: '🔥 Actionable Trend' },
   { id: '8', name: '선스틱', type: 'formula', x: 65, y: 70, size: 55, value: 68, status: '🌱 Early Trend' },
-  { id: '9', name: '쿠션', type: 'formula', x: 45, y: 75, size: 65, value: 81, status: '📈 Growing Trend' },
+  { id: '9', name: '쿠션', type: 'formula', x: 45, y: 75, size: 65, value: 81, status: '🚀 Growing Trend' },
   // 효과
-  { id: '10', name: '모공 케어', type: 'effect', x: 15, y: 50, size: 70, value: 87, status: '📈 Growing Trend' },
-  { id: '11', name: '장벽 강화', type: 'effect', x: 40, y: 65, size: 75, value: 93, status: '🚀 Actionable Trend' },
+  { id: '10', name: '모공 케어', type: 'effect', x: 15, y: 50, size: 70, value: 87, status: '🚀 Growing Trend' },
+  { id: '11', name: '장벽 강화', type: 'effect', x: 40, y: 65, size: 75, value: 93, status: '🔥 Actionable Trend' },
   { id: '12', name: '진정', type: 'effect', x: 55, y: 50, size: 60, value: 78, status: '🌱 Early Trend' },
   { id: '13', name: '광채', type: 'effect', x: 30, y: 80, size: 55, value: 72, status: '🌱 Early Trend' },
 ];
@@ -1327,21 +1331,21 @@ export const bubbleDataDomestic: BubbleItem[] = [
 // 해외 Bubble Chart 데이터
 export const bubbleDataOverseas: BubbleItem[] = [
   // 성분
-  { id: 'ov1', name: 'Retinol', type: 'ingredient', x: 25, y: 35, size: 90, value: 98, status: '🚀 Actionable Trend' },
-  { id: 'ov2', name: 'Niacinamide', type: 'ingredient', x: 40, y: 50, size: 85, value: 92, status: '🚀 Actionable Trend' },
-  { id: 'ov3', name: 'Hyaluronic Acid', type: 'ingredient', x: 55, y: 30, size: 88, value: 95, status: '🚀 Actionable Trend' },
-  { id: 'ov4', name: 'Vitamin C', type: 'ingredient', x: 30, y: 65, size: 75, value: 88, status: '📈 Growing Trend' },
-  { id: 'ov5', name: 'Peptide', type: 'ingredient', x: 65, y: 45, size: 70, value: 82, status: '📈 Growing Trend' },
+  { id: 'ov1', name: 'Retinol', type: 'ingredient', x: 25, y: 35, size: 90, value: 98, status: '🔥 Actionable Trend' },
+  { id: 'ov2', name: 'Niacinamide', type: 'ingredient', x: 40, y: 50, size: 85, value: 92, status: '🔥 Actionable Trend' },
+  { id: 'ov3', name: 'Hyaluronic Acid', type: 'ingredient', x: 55, y: 30, size: 88, value: 95, status: '🔥 Actionable Trend' },
+  { id: 'ov4', name: 'Vitamin C', type: 'ingredient', x: 30, y: 65, size: 75, value: 88, status: '🚀 Growing Trend' },
+  { id: 'ov5', name: 'Peptide', type: 'ingredient', x: 65, y: 45, size: 70, value: 82, status: '🚀 Growing Trend' },
   // 제형
-  { id: 'ov6', name: 'Serum', type: 'formula', x: 75, y: 40, size: 85, value: 93, status: '🚀 Actionable Trend' },
-  { id: 'ov7', name: 'Moisturizer', type: 'formula', x: 85, y: 60, size: 92, value: 96, status: '🚀 Actionable Trend' },
-  { id: 'ov8', name: 'Sunscreen', type: 'formula', x: 70, y: 75, size: 80, value: 90, status: '🚀 Actionable Trend' },
-  { id: 'ov9', name: 'Essence', type: 'formula', x: 50, y: 80, size: 72, value: 85, status: '📈 Growing Trend' },
+  { id: 'ov6', name: 'Serum', type: 'formula', x: 75, y: 40, size: 85, value: 93, status: '🔥 Actionable Trend' },
+  { id: 'ov7', name: 'Moisturizer', type: 'formula', x: 85, y: 60, size: 92, value: 96, status: '🔥 Actionable Trend' },
+  { id: 'ov8', name: 'Sunscreen', type: 'formula', x: 70, y: 75, size: 80, value: 90, status: '🔥 Actionable Trend' },
+  { id: 'ov9', name: 'Essence', type: 'formula', x: 50, y: 80, size: 72, value: 85, status: '🚀 Growing Trend' },
   // 효과
-  { id: 'ov10', name: 'Anti-aging', type: 'effect', x: 20, y: 55, size: 88, value: 94, status: '🚀 Actionable Trend' },
-  { id: 'ov11', name: 'Brightening', type: 'effect', x: 45, y: 70, size: 82, value: 91, status: '🚀 Actionable Trend' },
-  { id: 'ov12', name: 'Hydration', type: 'effect', x: 60, y: 55, size: 75, value: 87, status: '📈 Growing Trend' },
-  { id: 'ov13', name: 'Repair', type: 'effect', x: 35, y: 85, size: 68, value: 80, status: '📈 Growing Trend' },
+  { id: 'ov10', name: 'Anti-aging', type: 'effect', x: 20, y: 55, size: 88, value: 94, status: '🔥 Actionable Trend' },
+  { id: 'ov11', name: 'Brightening', type: 'effect', x: 45, y: 70, size: 82, value: 91, status: '🔥 Actionable Trend' },
+  { id: 'ov12', name: 'Hydration', type: 'effect', x: 60, y: 55, size: 75, value: 87, status: '🚀 Growing Trend' },
+  { id: 'ov13', name: 'Repair', type: 'effect', x: 35, y: 85, size: 68, value: 80, status: '🚀 Growing Trend' },
 ];
 
 // 하위 호환성을 위한 기본 export

@@ -2,7 +2,8 @@
  * API 서비스 - 실제 백엔드 API 호출
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+// @ts-ignore - Vite env types
+const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || '/api';
 
 export interface LeaderboardItem {
   rank: number;
@@ -265,6 +266,7 @@ export interface ReviewDetail {
   keyword: string;
   sentiment: string;
   content: string;
+  contentKr?: string;  // 한국어 번역
   product: string;
   brand: string;
   rating: number;
@@ -445,6 +447,43 @@ export async function fetchLLMReviewSummary(
   }
 }
 
+// ===== Review Type Summary API (EXAONE 키워드별 요약) =====
+
+export interface ReviewTypeSummary {
+  keyword?: string;
+  reviewType?: string;
+  sentiment: string;
+  summary: string;
+  sampleReviews: { content: string; contentKr?: string; product: string; brand: string; rating: number }[];
+  reviewCount: number;
+  source: string;
+  generatedAt: string;
+}
+
+export async function fetchReviewTypeSummary(
+  country: string = 'usa',
+  keywordOrReviewType: string,
+  sentiment: string = 'positive'
+): Promise<ReviewTypeSummary | null> {
+  try {
+    // keyword 파라미터로 요약 조회 (리더보드 키워드 기반)
+    const params = new URLSearchParams({
+      country,
+      keyword: keywordOrReviewType,
+      sentiment
+    });
+
+    const response = await fetch(`${API_BASE_URL}/real/review-type-summary?${params}`);
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('리뷰 유형별 요약 조회 오류:', error);
+    return null;
+  }
+}
+
 export interface LLMSNSAnalysisRequest {
   country: string;
   category: string;
@@ -454,6 +493,8 @@ export interface LLMSNSAnalysisRequest {
 export interface LLMSNSAnalysisResponse {
   success: boolean;
   summary: string;
+  retailAnalysis?: string;
+  snsAnalysis?: string;
   insights: string[];
   recommendations: string[];
   error?: string;
@@ -493,6 +534,7 @@ export interface WhyTrendingRequest {
   score: number;
   signals: { SNS: number; Retail: number; Review: number };
   positiveKeywords?: string[];
+  negativeKeywords?: string[];
 }
 
 export interface WhyTrendingData {
@@ -719,6 +761,8 @@ export interface RAGInsightRequest {
   category: string;
   country: string;
   topKeywords?: { keyword: string; score?: number; trendLevel?: string }[];
+  positiveReviews?: string[];
+  negativeReviews?: string[];
 }
 
 export interface RAGInsightResponse {
@@ -902,6 +946,112 @@ export async function sendChatMultimodal(data: ChatMultimodalRequest): Promise<C
   } catch (error) {
     console.error('Chat 멀티모달 전송 오류:', error);
     return { success: false, response: '', error: String(error) };
+  }
+}
+
+// ===== Keyword Description API =====
+
+export interface KeywordDescriptionData {
+  keyword: string;
+  koreanName: string;
+  description: string;
+  keywordType?: string;
+  category?: string;
+  source: string;
+}
+
+export async function fetchKeywordDescription(
+  keyword: string,
+  country: string = 'usa'
+): Promise<KeywordDescriptionData | null> {
+  try {
+    const params = new URLSearchParams({ keyword, country });
+    const response = await fetch(`${API_BASE_URL}/real/keyword-description?${params}`);
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (error) {
+    console.error('키워드 의미 조회 오류:', error);
+    return null;
+  }
+}
+
+// 꿀조합 키워드 설명을 가져오는 함수 (여러 키워드 조합)
+export interface CombinedKeywordDescriptionData {
+  combinedKeyword: string;
+  keywords: Array<{
+    keyword: string;
+    koreanName: string;
+    description: string;
+    keywordType?: string;
+  }>;
+  combinedDescription: string;
+}
+
+export async function fetchCombinedKeywordDescription(
+  combinedKeyword: string,
+  country: string = 'usa'
+): Promise<CombinedKeywordDescriptionData | null> {
+  try {
+    // 키워드 분리 (+ 또는 공백으로 구분)
+    const separators = [' + ', '+', ' & ', '&', ' / ', '/'];
+    let keywords: string[] = [combinedKeyword];
+
+    for (const sep of separators) {
+      if (combinedKeyword.includes(sep)) {
+        keywords = combinedKeyword.split(sep).map(k => k.trim()).filter(k => k);
+        break;
+      }
+    }
+
+    // 단일 키워드인 경우 기존 함수 사용
+    if (keywords.length === 1) {
+      const singleResult = await fetchKeywordDescription(combinedKeyword, country);
+      if (singleResult) {
+        return {
+          combinedKeyword,
+          keywords: [{
+            keyword: singleResult.keyword,
+            koreanName: singleResult.koreanName,
+            description: singleResult.description,
+            keywordType: singleResult.keywordType,
+          }],
+          combinedDescription: singleResult.description,
+        };
+      }
+      return null;
+    }
+
+    // 각 키워드별로 설명 가져오기
+    const promises = keywords.map(kw => fetchKeywordDescription(kw, country));
+    const results = await Promise.all(promises);
+
+    const validResults = results.filter(r => r !== null) as KeywordDescriptionData[];
+
+    if (validResults.length === 0) {
+      return null;
+    }
+
+    // 조합된 설명 생성
+    const keywordInfos = validResults.map(r => ({
+      keyword: r.keyword,
+      koreanName: r.koreanName,
+      description: r.description,
+      keywordType: r.keywordType,
+    }));
+
+    // 조합 설명 생성
+    const combinedDescription = keywordInfos
+      .map(k => `**${k.koreanName || k.keyword}**: ${k.description}`)
+      .join('\n\n');
+
+    return {
+      combinedKeyword,
+      keywords: keywordInfos,
+      combinedDescription,
+    };
+  } catch (error) {
+    console.error('조합 키워드 의미 조회 오류:', error);
+    return null;
   }
 }
 

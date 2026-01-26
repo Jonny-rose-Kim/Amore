@@ -20,14 +20,15 @@ interface SegmentedLeaderboardProps {
 
 export default function SegmentedLeaderboard({ data, region = 'domestic', country = 'usa', onSelectItem, onCategoryChange }: SegmentedLeaderboardProps) {
   const [selectedCategory, setSelectedCategory] = useState<MainCategory | null>('Skincare');
-  const [activeType, setActiveType] = useState<LeaderboardType>('combined');
-  // 각 타입별로 별도의 상태 필터 관리 (기본값 actionable)
+  const [activeType, setActiveType] = useState<LeaderboardType>('ingredient');
+  const [selectedItemName, setSelectedItemName] = useState<string | null>(null);
+  // 각 타입별로 별도의 상태 필터 관리 (기본값 growing)
   const [statusFilters, setStatusFilters] = useState<Record<LeaderboardType, Exclude<StatusFilter, 'all'>>>({
-    ingredient: 'actionable',
-    formula: 'actionable',
-    effect: 'actionable',
-    visual: 'actionable',
-    combined: 'actionable',
+    ingredient: 'growing',
+    formula: 'growing',
+    effect: 'growing',
+    visual: 'growing',
+    combined: 'growing',
   });
   
   // 대분류 카테고리 목록
@@ -42,6 +43,8 @@ export default function SegmentedLeaderboard({ data, region = 'domestic', countr
     'Hair Care': '헤어케어',
     'Body Care': '바디케어',
     'Mens Care': '맨즈케어',
+    'Haircare': '헤어케어',
+    'Bodycare': '바디케어',
   };
   
   // API에서 실제 데이터 가져오기
@@ -79,8 +82,8 @@ export default function SegmentedLeaderboard({ data, region = 'domestic', countr
             const level = item.trendLevel || (statusFilters[activeType] === 'actionable' ? 'Actionable' :
                           statusFilters[activeType] === 'growing' ? 'Growing' : 'Early');
             const statusMap: Record<string, TrendStatus> = {
-              'Actionable': '🚀 Actionable Trend',
-              'Growing': '📈 Growing Trend',
+              'Actionable': '🔥 Actionable Trend',
+              'Growing': '🚀 Growing Trend',
               'Early': '🌱 Early Trend'
             };
             // Generate mock reviewKeywords based on keyword name
@@ -108,7 +111,7 @@ export default function SegmentedLeaderboard({ data, region = 'domestic', countr
               y: Math.random() * 100,
               size: item.score,
               value: item.score,
-              status: statusMap[level] || ('📈 Growing Trend' as TrendStatus),
+              status: statusMap[level] || ('🚀 Growing Trend' as TrendStatus),
               reviewKeywords
             };
           });
@@ -305,7 +308,6 @@ export default function SegmentedLeaderboard({ data, region = 'domestic', countr
     { id: 'formula', label: '제형', icon: '💧' },
     { id: 'effect', label: '효과', icon: '✨' },
     { id: 'visual', label: 'visual/mood', icon: '🎨' },
-    { id: 'combined', label: '종합', icon: '📊' },
   ];
   
   return (
@@ -319,9 +321,8 @@ export default function SegmentedLeaderboard({ data, region = 'domestic', countr
           usage="성분 리더보드: 어떤 성분이 유행인지 빠르게 확인 / 제형 리더보드: 사용감이나 제형 변화 흐름 파악 / 기능 리더보드: 소비자 니즈 변화 확인 / 종합 리더보드: 실제 시장에서 의미 있게 결합되고 있는 조합을 한번에 확인"
           terms={[
             { term: '🌱 Early Trend', meaning: 'SNS 중심으로 초기 관심 신호가 관찰되는 단계 (구매·리뷰 데이터는 제한적)' },
-            { term: '📈 Growing Trend', meaning: 'SNS 관심 증가와 함께 구매 지표가 동반 상승하는 단계 (Action 가능성 검토 구간)' },
-            { term: '🚀 Actionable Trend', meaning: '관심·구매·리뷰 지표가 모두 정합성을 보이며 실무 의사결정에 즉시 활용 가능한 단계' },
-            { term: '📉 Cooling', meaning: '하락세인 트렌드 - 인기가 감소하고 있는 트렌드' },
+            { term: '🚀 Growing Trend', meaning: 'SNS 관심 증가와 함께 구매 지표가 동반 상승하는 단계 (Action 가능성 검토 구간)' },
+            { term: '🔥 Actionable Trend', meaning: '관심·구매·리뷰 지표가 모두 정합성을 보이며 실무 의사결정에 즉시 활용 가능한 단계' },
           ]}
         />
       </div>
@@ -342,6 +343,8 @@ export default function SegmentedLeaderboard({ data, region = 'domestic', countr
                 'Hair Care': '💇‍♀️',
                 'Body Care': '🛁',
                 'Mens Care': '👨',
+                'Haircare': '💇‍♀️',
+                'Bodycare': '🛁',
               };
               const categoryColors: Record<MainCategory, { selected: string; unselected: string }> = {
                 'Skincare': { selected: 'from-pink-500 to-rose-500', unselected: 'border-pink-300 hover:bg-pink-50' },
@@ -351,6 +354,8 @@ export default function SegmentedLeaderboard({ data, region = 'domestic', countr
                 'Hair Care': { selected: 'from-violet-500 to-purple-500', unselected: 'border-violet-300 hover:bg-violet-50' },
                 'Body Care': { selected: 'from-emerald-500 to-teal-500', unselected: 'border-emerald-300 hover:bg-emerald-50' },
                 'Mens Care': { selected: 'from-indigo-500 to-blue-500', unselected: 'border-indigo-300 hover:bg-indigo-50' },
+                'Haircare': { selected: 'from-violet-500 to-purple-500', unselected: 'border-violet-300 hover:bg-violet-50' },
+                'Bodycare': { selected: 'from-emerald-500 to-teal-500', unselected: 'border-emerald-300 hover:bg-emerald-50' },
               };
               const colors = categoryColors[category];
               return (
@@ -399,8 +404,8 @@ export default function SegmentedLeaderboard({ data, region = 'domestic', countr
         <div className="flex gap-2 flex-wrap">
           {[
             { id: 'early' as const, label: '🌱 Early Trend', icon: '🌱', tooltip: 'SNS 중심으로 초기 관심 신호가 관찰되는 단계 (구매·리뷰 데이터는 제한적)' },
-            { id: 'growing' as const, label: '📈 Growing Trend', icon: '📈', tooltip: 'SNS 관심 증가와 함께 구매 지표가 동반 상승하는 단계 (Action 가능성 검토 구간)' },
-            { id: 'actionable' as const, label: '🚀 Actionable Trend', icon: '🚀', tooltip: '관심·구매·리뷰 지표가 모두 정합성을 보이며 실무 의사결정에 즉시 활용 가능한 단계' },
+            { id: 'growing' as const, label: '🚀 Growing Trend', icon: '🚀', tooltip: 'SNS 관심 증가와 함께 구매 지표가 동반 상승하는 단계 (Action 가능성 검토 구간)' },
+            { id: 'actionable' as const, label: '🔥 Actionable Trend', icon: '🔥', tooltip: '관심·구매·리뷰 지표가 모두 정합성을 보이며 실무 의사결정에 즉시 활용 가능한 단계' },
           ].map((filter) => (
             <div key={filter.id} className="relative group">
               <button
@@ -428,6 +433,33 @@ export default function SegmentedLeaderboard({ data, region = 'domestic', countr
         </div>
       </div>
 
+      {/* Trend Index Score 설명 - 스크롤 영역 밖에 배치 */}
+      <div className="flex items-center justify-end gap-1.5 mb-2 pr-1 flex-shrink-0">
+        <span className="text-xs text-slate-500">Trend Index</span>
+        <div className="relative group/info">
+          <div className="flex items-center justify-center w-5 h-5 rounded-full bg-slate-100 hover:bg-rose-100 cursor-help transition-colors">
+            <Info className="w-3.5 h-3.5 text-slate-500 group-hover/info:text-rose-500 transition-colors" />
+          </div>
+          <div className="absolute top-full right-0 mt-2 w-80 opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible transition-all duration-200 z-[9999] pointer-events-none">
+            <div className="bg-slate-900 border border-slate-600 rounded-xl p-4 shadow-2xl">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-lg">📊</span>
+                <span className="text-white font-bold text-sm">Trend Index Score</span>
+              </div>
+              <p className="text-slate-200 text-xs leading-relaxed">
+                SNS 버즈량, 리테일 검색/판매 신호, 리뷰 감성 분석 등 트렌드 파악에 필요한 다양한 변수들을 조합하여 <span className="text-rose-400 font-semibold">가중치 연산 후 정규화한 종합 지수</span>입니다.
+              </p>
+              <div className="mt-2 pt-2 border-t border-slate-700">
+                <p className="text-slate-300 text-xs">
+                  높을수록 해당 키워드의 시장 관심도가 높음
+                </p>
+              </div>
+              <div className="absolute top-0 right-4 transform -translate-y-full w-0 h-0 border-l-8 border-r-8 border-b-8 border-transparent border-b-slate-900" />
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* 리더보드 내용 */}
       <div className="flex-1 overflow-y-auto min-h-0 pr-2">
         <div className="space-y-2">
@@ -446,23 +478,27 @@ export default function SegmentedLeaderboard({ data, region = 'domestic', countr
 
             const getTypeColor = (type: string) => {
               if (type === 'ingredient') {
-                return 'bg-pink-400/80 text-slate-900 border-pink-500 font-semibold';
+                return 'bg-gradient-to-r from-pink-100 to-rose-100 text-pink-700 border-pink-300 font-semibold';
               } else if (type === 'formula') {
-                return 'bg-rose-400/80 text-slate-900 border-rose-500 font-semibold';
+                return 'bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-700 border-blue-300 font-semibold';
+              } else if (type === 'effect') {
+                return 'bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-700 border-amber-300 font-semibold';
               } else if (type === 'visual') {
-                return 'bg-purple-400/80 text-slate-900 border-purple-500 font-semibold';
+                return 'bg-gradient-to-r from-purple-100 to-violet-100 text-purple-700 border-purple-300 font-semibold';
               } else {
-                return 'bg-coral-400/80 text-slate-900 border-coral-500 font-semibold';
+                return 'bg-gradient-to-r from-slate-100 to-gray-100 text-slate-700 border-slate-300 font-semibold';
               }
             };
 
-            const getIntensity = (value: number) => {
-              if (value >= 90) return { level: '🔥', color: 'text-red-400', label: '핫' };
-              if (value >= 80) return { level: '🚀', color: 'text-rose-400', label: '상승' };
-              return { level: '📈', color: 'text-pink-400', label: '안정' };
+            // Status 기반 이모지
+            const getStatusEmoji = (status?: string) => {
+              if (status?.includes('Actionable')) return { level: '🔥', color: 'text-red-400', label: 'Actionable' };
+              if (status?.includes('Growing')) return { level: '🚀', color: 'text-orange-400', label: 'Growing' };
+              if (status?.includes('Early')) return { level: '🌱', color: 'text-green-400', label: 'Early' };
+              return { level: '📊', color: 'text-slate-400', label: '기타' };
             };
 
-            const intensity = getIntensity(item.value);
+            const intensity = getStatusEmoji(item.status);
             const statusColor = getStatusColor(item.status);
             const typeColor = getTypeColor(item.type);
 
@@ -487,10 +523,17 @@ export default function SegmentedLeaderboard({ data, region = 'domestic', countr
                   scale: { duration: 0.3 },
                   boxShadow: { duration: 0.3 }
                 }}
-                className={`bg-white/95 backdrop-blur-sm border rounded-lg overflow-hidden hover:border-rose-400 transition-all cursor-pointer shadow-sm ${
-                  isUpdated ? 'border-rose-400 ring-2 ring-rose-300/50' : 'border-slate-200/80'
+                className={`backdrop-blur-sm border rounded-lg overflow-hidden hover:border-rose-400 transition-all cursor-pointer shadow-sm ${
+                  selectedItemName === item.name
+                    ? 'bg-gradient-to-r from-rose-100 to-pink-100 border-rose-500 ring-2 ring-rose-400/50 shadow-lg shadow-rose-200/50'
+                    : isUpdated
+                      ? 'bg-white/95 border-rose-400 ring-2 ring-rose-300/50'
+                      : 'bg-white/95 border-slate-200/80'
                 }`}
-                onClick={() => onSelectItem?.(item, index + 1, activeType)}
+                onClick={() => {
+                  setSelectedItemName(item.name);
+                  onSelectItem?.(item, index + 1, activeType);
+                }}
               >
                 <div className="w-full px-4 py-3 flex items-center justify-between relative">
                   {/* 업데이트 인디케이터 */}
@@ -510,23 +553,32 @@ export default function SegmentedLeaderboard({ data, region = 'domestic', countr
                   )}
                   
                   <div className="flex items-center gap-4 flex-1 text-left">
-                    <motion.span 
-                      className="text-rose-600 font-bold text-lg w-8"
+                    <motion.span
+                      className={`font-bold text-xl w-10 text-center ${
+                        index === 0 ? 'text-amber-500' :
+                        index === 1 ? 'text-slate-400' :
+                        index === 2 ? 'text-amber-700' : 'text-rose-600'
+                      }`}
                       animate={isUpdated ? { scale: [1, 1.2, 1] } : {}}
                       transition={{ duration: 0.3 }}
                     >
-                      {index + 1}
+                      {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1}
                     </motion.span>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <span className={`text-xs px-2 py-0.5 rounded border backdrop-blur-sm ${typeColor}`}>
-                          {item.type === 'ingredient' ? '성분' : item.type === 'formula' ? '제형' : item.type === 'effect' ? '효과' : item.type === 'visual' ? 'visual/mood' : '종합'}
+                        <span className={`text-xs px-2.5 py-1 rounded-lg border shadow-sm ${typeColor}`}>
+                          {item.type === 'ingredient' ? '🧪 성분' : item.type === 'formula' ? '💧 제형' : item.type === 'effect' ? '✨ 효과' : item.type === 'visual' ? '🎨 무드' : '📊 종합'}
                         </span>
-                        {item.status && (
-                          <span className={`text-xs px-2 py-0.5 rounded border backdrop-blur-sm ${statusColor}`}>
-                            {item.status}
-                          </span>
-                        )}
+                        {/* 트렌드 단계 뱃지 */}
+                        <span className={`text-xs px-2 py-0.5 rounded-md ${
+                          item.status?.includes('Actionable')
+                            ? 'bg-orange-100 text-orange-700 border border-orange-300'
+                            : item.status?.includes('Growing')
+                            ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
+                            : 'bg-violet-100 text-violet-700 border border-violet-300'
+                        }`}>
+                          {item.status?.includes('Actionable') ? '🔥 Actionable' : item.status?.includes('Growing') ? '🚀 Growing' : '🌱 Early'}
+                        </span>
                       </div>
                       <h3 className="text-slate-900 font-medium">
                         {item.name}
@@ -541,7 +593,7 @@ export default function SegmentedLeaderboard({ data, region = 'domestic', countr
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <div className="text-right">
-                      <motion.div 
+                      <motion.div
                         className="text-lg font-bold text-slate-900 flex items-center gap-1"
                         animate={isUpdated ? { scale: [1, 1.1, 1] } : {}}
                         transition={{ duration: 0.3 }}
@@ -556,7 +608,6 @@ export default function SegmentedLeaderboard({ data, region = 'domestic', countr
                           {displayValue}%
                         </motion.span>
                       </motion.div>
-                      <div className="text-xs text-slate-900">{intensity.label}</div>
                     </div>
                     <div className="w-24 h-2 bg-slate-200 rounded-full overflow-hidden relative">
                       <motion.div
