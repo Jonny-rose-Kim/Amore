@@ -12,9 +12,10 @@ interface ReviewKeywordsPanelProps {
   isCombination?: boolean;
   country?: string;
   componentKeywords?: string[];
+  onOpenReviewModal?: (reviews: any[], sentimentType: 'positive' | 'negative', reviewType: string) => void;
 }
 
-export default function ReviewKeywordsPanel({ keywords, itemName, isCombination = false, country = 'usa', componentKeywords }: ReviewKeywordsPanelProps) {
+export default function ReviewKeywordsPanel({ keywords, itemName, isCombination = false, country = 'usa', componentKeywords, onOpenReviewModal }: ReviewKeywordsPanelProps) {
   const [dbSentiment, setDbSentiment] = useState<{ positive: number; negative: number } | null>(null);
   const [dbReviews, setDbReviews] = useState<ReviewDetail[]>([]);
   const [showingReviews, setShowingReviews] = useState(false);
@@ -149,12 +150,8 @@ export default function ReviewKeywordsPanel({ keywords, itemName, isCombination 
       fetchReviewTypeSummary(country, keywordForSummary, sentiment)
     ]).then(([reviews, summaryResult]) => {
       // 리뷰 처리
-      if (reviews.length > 0) {
-        setDbReviews(reviews);
-      } else {
-        const mockReviews = generateFallbackReviews(reviewType, sentiment, kws);
-        setDbReviews(mockReviews);
-      }
+      const finalReviews = reviews.length > 0 ? reviews : generateFallbackReviews(reviewType, sentiment, kws);
+      setDbReviews(finalReviews);
 
       // EXAONE 요약 처리
       if (summaryResult && summaryResult.summary) {
@@ -162,13 +159,24 @@ export default function ReviewKeywordsPanel({ keywords, itemName, isCombination 
       }
 
       setIsLoadingExaone(false);
-      setShowingReviews(true);
+
+      // 대시보드 레벨 모달 콜백 사용 (있으면)
+      if (onOpenReviewModal) {
+        onOpenReviewModal(finalReviews, sentiment as 'positive' | 'negative', reviewType);
+      } else {
+        setShowingReviews(true);
+      }
     }).catch(() => {
       // API 실패 시 fallback
       const mockReviews = generateFallbackReviews(reviewType, sentiment, kws);
       setDbReviews(mockReviews);
       setIsLoadingExaone(false);
-      setShowingReviews(true);
+
+      if (onOpenReviewModal) {
+        onOpenReviewModal(mockReviews, sentiment as 'positive' | 'negative', reviewType);
+      } else {
+        setShowingReviews(true);
+      }
     });
   };
 
@@ -717,61 +725,104 @@ export default function ReviewKeywordsPanel({ keywords, itemName, isCombination 
         </div>
       </div>
 
-      {/* 리뷰 유형별 실제 리뷰 팝업 */}
+      {/* 리뷰 유형별 실제 리뷰 팝업 - 전체 화면 모달 */}
       {showingReviews && dbReviews.length > 0 && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowingReviews(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-[90%] max-w-lg max-h-[75vh] flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b border-slate-200">
-              <h4 className="font-bold text-slate-900 flex items-center gap-2">
-                {reviewSentimentFilter === 'positive' ? (
-                  <ThumbsUp className="w-4 h-4 text-emerald-500" />
-                ) : (
-                  <ThumbsDown className="w-4 h-4 text-rose-500" />
-                )}
-                {reviewSentimentFilter === 'positive' ? '긍정' : '부정'} 리뷰 ({dbReviews.length}건)
-              </h4>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-6" onClick={() => setShowingReviews(false)}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className={`bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col border-2 ${
+              reviewSentimentFilter === 'positive' ? 'border-emerald-300' : 'border-rose-300'
+            }`}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* 헤더 */}
+            <div className={`flex items-center justify-between p-6 border-b ${
+              reviewSentimentFilter === 'positive'
+                ? 'border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50'
+                : 'border-rose-200 bg-gradient-to-r from-rose-50 to-pink-50'
+            } rounded-t-3xl`}>
+              <div className="flex items-center gap-4">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                  reviewSentimentFilter === 'positive'
+                    ? 'bg-emerald-500 shadow-lg shadow-emerald-500/30'
+                    : 'bg-rose-500 shadow-lg shadow-rose-500/30'
+                }`}>
+                  {reviewSentimentFilter === 'positive' ? (
+                    <ThumbsUp className="w-6 h-6 text-white" />
+                  ) : (
+                    <ThumbsDown className="w-6 h-6 text-white" />
+                  )}
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-900 text-xl">
+                    {reviewSentimentFilter === 'positive' ? '긍정' : '부정'} 리뷰 분석
+                  </h4>
+                  <p className="text-slate-500 text-sm">
+                    "{currentReviewType}" 키워드 관련 · 총 {dbReviews.length}건의 리뷰
+                  </p>
+                </div>
+              </div>
               <button
                 onClick={() => setShowingReviews(false)}
-                className="text-slate-400 hover:text-slate-700 text-lg font-bold"
+                className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
               >
-                ✕
+                <span className="text-slate-600 text-xl">✕</span>
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {dbReviews.map((review, idx) => {
-                // DB의 contentKr 우선 사용, 없으면 translateReview로 fallback
-                const korTranslation = review.contentKr || translateReview(review.content);
-                return (
-                  <div
-                    key={idx}
-                    className={`p-4 rounded-xl border ${
-                      reviewSentimentFilter === 'positive'
-                        ? 'bg-emerald-50/80 border-emerald-200'
-                        : 'bg-rose-50/80 border-rose-200'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-bold text-slate-800 text-sm">{review.product}</span>
-                      <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{review.source} | ⭐ {review.rating?.toFixed(1)}</span>
-                    </div>
-                    <p className="text-slate-800 text-sm leading-relaxed mb-1">"{review.content}"</p>
-                    {korTranslation && (
-                      <p className="text-slate-600 text-xs leading-relaxed mb-2 pl-2 border-l-2 border-blue-400 bg-blue-50/50 p-2 rounded italic">
-                        🇰🇷 {korTranslation}
-                      </p>
-                    )}
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-slate-500">{review.brand}</span>
-                      <span className="text-[10px] text-slate-400">
-                        {new Date(review.postedAt).toLocaleDateString('ko-KR')}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
 
+            {/* 리뷰 목록 */}
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {dbReviews.map((review, idx) => {
+                  const korTranslation = review.contentKr || translateReview(review.content);
+                  return (
+                    <motion.div
+                      key={idx}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.05 }}
+                      className={`p-5 rounded-2xl border-2 ${
+                        reviewSentimentFilter === 'positive'
+                          ? 'bg-gradient-to-br from-emerald-50 to-teal-50/50 border-emerald-200 hover:border-emerald-300'
+                          : 'bg-gradient-to-br from-rose-50 to-pink-50/50 border-rose-200 hover:border-rose-300'
+                      } transition-all hover:shadow-lg`}
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="font-bold text-slate-800">{review.product}</span>
+                        <span className={`text-xs px-3 py-1 rounded-full font-medium ${
+                          reviewSentimentFilter === 'positive'
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'bg-rose-100 text-rose-700'
+                        }`}>
+                          {review.source} | ⭐ {review.rating?.toFixed(1)}
+                        </span>
+                      </div>
+                      <p className="text-slate-800 leading-relaxed mb-3">"{review.content}"</p>
+                      {korTranslation && (
+                        <div className={`p-3 rounded-xl mb-3 ${
+                          reviewSentimentFilter === 'positive'
+                            ? 'bg-emerald-100/50 border-l-4 border-emerald-400'
+                            : 'bg-rose-100/50 border-l-4 border-rose-400'
+                        }`}>
+                          <p className="text-slate-700 text-sm leading-relaxed italic">
+                            🇰🇷 {korTranslation}
+                          </p>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-slate-600 font-medium">{review.brand}</span>
+                        <span className="text-slate-400">
+                          {new Date(review.postedAt).toLocaleDateString('ko-KR')}
+                        </span>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          </motion.div>
         </div>
       )}
     </motion.div>

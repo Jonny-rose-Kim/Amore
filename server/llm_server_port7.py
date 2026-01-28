@@ -2,6 +2,7 @@
 LLM Inference Server for AMORE CLUE Dashboard
 - Text: EXAONE-3.5-7.8B-Instruct (LG AI Research)
 - Multimodal: Qwen2-VL-2B-Instruct (Lazy Loading)
+Endpoints: rag-insight, plc-prediction, category-prediction, chat
 """
 import os
 import json
@@ -10,12 +11,35 @@ import base64
 import io
 import torch
 import setproctitle
+import threading
+import time
+import gc
 setproctitle.setproctitle("wook-llm-port7")
 from flask import Flask, request, jsonify
 from transformers import AutoModelForCausalLM, AutoTokenizer, Qwen2VLForConditionalGeneration, AutoProcessor
 from PIL import Image
 
 app = Flask(__name__)
+
+# ===== CUDA Error Handling =====
+# 동시 요청 제한 (GPU 충돌 방지)
+inference_semaphore = threading.Semaphore(1)
+MAX_RETRIES = 2
+CUDA_ERROR_COUNT = 0
+MAX_CUDA_ERRORS = 5  # 이 횟수 초과시 서버 재시작 권장
+
+def reset_cuda_state():
+    """CUDA 상태 초기화"""
+    global CUDA_ERROR_COUNT
+    try:
+        torch.cuda.empty_cache()
+        gc.collect()
+        print("[CUDA] Memory cache cleared")
+    except Exception as e:
+        print(f"[CUDA] Cache clear failed: {e}")
+    CUDA_ERROR_COUNT += 1
+    if CUDA_ERROR_COUNT >= MAX_CUDA_ERRORS:
+        print(f"[WARNING] CUDA errors exceeded {MAX_CUDA_ERRORS}. Server restart recommended.")
 
 # ===== VLM Model (Lazy Loading) =====
 vlm_model = None
@@ -181,28 +205,64 @@ SYSTEM_PROMPT = """당신은 글로벌 K-뷰티(K-Beauty) 시장 분석 및 화�
 
 
 def generate_response(prompt: str, max_new_tokens: int = 1024) -> str:
-    """Generate a response from the LLM"""
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": prompt}
-    ]
+    """Generate a response from the LLM with CUDA error handling"""
+    global CUDA_ERROR_COUNT
 
-    text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-    inputs = tokenizer(text, return_tensors="pt").to(DEVICE)
+    # 동시 요청 제한 (세마포어로 1개씩 처리)
+    acquired = inference_semaphore.acquire(timeout=120)  # 최대 2분 대기
+    if not acquired:
+        raise RuntimeError("Inference timeout: too many concurrent requests")
 
-    with torch.no_grad():
-        outputs = model.generate(
-            **inputs,
-            max_new_tokens=max_new_tokens,
-            temperature=0.7,
-            top_p=0.9,
-            do_sample=True,
-            repetition_penalty=1.1,
-        )
+    try:
+        for attempt in range(MAX_RETRIES + 1):
+            try:
+                messages = [
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt}
+                ]
 
-    generated = outputs[0][inputs["input_ids"].shape[1]:]
-    response = tokenizer.decode(generated, skip_special_tokens=True)
-    return response.strip()
+                text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+                inputs = tokenizer(text, return_tensors="pt").to(DEVICE)
+
+                with torch.no_grad():
+                    outputs = model.generate(
+                        **inputs,
+                        max_new_tokens=max_new_tokens,
+                        temperature=0.75,  # 0.7 → 0.75 (수치 안정성)
+                        top_p=0.9,
+                        top_k=50,  # 추가: 샘플링 풀 제한
+                        do_sample=True,
+                        repetition_penalty=1.05,  # 1.1 → 1.05 (inf/nan 방지)
+                    )
+
+                generated = outputs[0][inputs["input_ids"].shape[1]:]
+                response = tokenizer.decode(generated, skip_special_tokens=True)
+
+                # 성공 시 에러 카운트 리셋
+                CUDA_ERROR_COUNT = max(0, CUDA_ERROR_COUNT - 1)
+                return response.strip()
+
+            except RuntimeError as e:
+                error_msg = str(e)
+                is_cuda_error = "CUDA" in error_msg or "device-side assert" in error_msg or "out of memory" in error_msg.lower()
+                is_prob_error = "probability tensor" in error_msg or "inf" in error_msg or "nan" in error_msg
+
+                if is_cuda_error or is_prob_error:
+                    print(f"[INFERENCE ERROR] Attempt {attempt + 1}/{MAX_RETRIES + 1}: {error_msg[:100]}")
+                    reset_cuda_state()
+
+                    if attempt < MAX_RETRIES:
+                        time.sleep(2)  # 잠시 대기 후 재시도
+                        continue
+                    else:
+                        raise RuntimeError(f"Inference error after {MAX_RETRIES + 1} attempts. Server restart may be needed.")
+                else:
+                    raise  # 기타 에러는 그대로 전파
+
+    finally:
+        # 항상 세마포어 해제 및 메모리 정리
+        inference_semaphore.release()
+        torch.cuda.empty_cache()
 
 
 def clean_text(text: str) -> str:
@@ -539,24 +599,22 @@ def rag_insight():
 
         # 목적별 프롬프트
         if insight_type == "marketing":
-            purpose_instruction = """다음 형식으로 마케팅 캠페인 인사이트를 작성해주세요:
+            # 마케팅: Query 1 - 섹션 1, 2, 3만 생성
+            purpose_instruction = """다음 형식으로 마케팅 캠페인 인사이트를 작성해주세요. 반드시 아래 3개 섹션을 포함해야 합니다:
 
-Agent Insight
+**1. 타겟 오디언스 분석**
+• **핵심 타겟층:** 주요 타겟 고객군의 특성과 니즈를 구체적으로 설명
+• **타겟 인사이트:** 참고 사례를 바탕으로 한 효과적인 타겟팅 전략 제안
 
-1. 타겟 오디언스 분석
-위 데이터와 시장 사례를 바탕으로 핵심 타겟층과 그들의 니즈를 분석하고, 참고 사례의 성공적인 비주얼/무드를 반영한 타겟팅을 제안해주세요.
+**2. 채널 및 콘텐츠 전략**
+• **추천 채널:** 가장 효과적인 마케팅 채널 (SNS, 인플루언서, 리테일 등)
+• **콘텐츠 방향:** 참고 사례의 성공 전략을 반영한 콘텐츠 유형 및 바이럴 포인트
 
-2. 채널 및 콘텐츠 전략
-가장 효과적인 마케팅 채널과 콘텐츠 유형을 제안하되, 참고 사례의 성공 채널과 바이럴 전략을 구체적으로 언급해주세요.
+**3. 핵심 메시지 및 비주얼 컨셉**
+• **핵심 메시지:** 타겟에게 어필할 수 있는 캠페인 슬로건/메시지
+• **비주얼 방향:** 패키징, 분위기, 색감 등 비주얼 컨셉 제안
 
-3. 핵심 메시지 및 비주얼 컨셉
-타겟에게 어필할 수 있는 핵심 메시지, 캠페인 컨셉, 그리고 참고 사례를 바탕으로 한 비주얼 방향성(패키징, 분위기, 색감)을 제안해주세요.
-
-Market Precedent
-참고 사례에서 도출된 시장 선례와 벤치마크를 불릿(•)으로 정리하되, 각 사례의 구체적인 성과 지표를 포함해주세요.
-
-Agent Conclusion
-종합적인 캠페인 추천 방향을 2-3문장으로 정리해주세요."""
+위 3개 섹션만 작성하세요. 각 섹션 제목과 하위 카테고리는 반드시 **굵은 글씨**로 표시하세요."""
 
         elif insight_type == "npd":
             purpose_instruction = """다음 형식으로 신제품 기획 인사이트를 작성해주세요:
@@ -626,14 +684,104 @@ Agent Conclusion
 
         content = clean_text(response) if response else f"{country_name} {category} 시장에 대한 {type_name} 인사이트입니다."
 
-        if "Agent Insight" not in content:
-            content = f"Agent Insight\n\n{content}"
-        if "Agent Conclusion" not in content:
-            content += "\n\nAgent Conclusion\n\n위 분석을 종합하면, 현재 시장 트렌드와 실제 사례를 기반으로 전략적 접근이 필요합니다."
+        # ===== 마케팅 타입: Query 2 - 과거 성공 사례 (4번만) =====
+        query2_section = ""
+        if insight_type == "marketing" and rag_sources:
+            print("  [Marketing] Query 2: Generating past success cases...")
+            query2_prompt = f"""당신은 K-뷰티 마케팅 전략 전문가입니다.
+아래 실제 마케팅 성공 사례들을 분석해주세요.
+
+[분석 대상]
+- 국가: {country_name}
+- 카테고리: {category}
+- 주요 키워드: {keywords_text}
+
+{rag_text}
+
+다음 형식으로 정확히 작성해주세요:
+
+**4. 과거 성공 사례 분석**
+
+**4-1. [브랜드명 - 제품명]**
+• <성과지표> 해당 사례의 구체적인 성공 수치 (매출 증가율, 판매량, 인지도 상승 등)
+• <핵심전략> 이 사례에서 배울 수 있는 핵심 성공 전략
+• <적용방안> {target_desc}에 이 전략을 어떻게 적용할 수 있는지
+
+**4-2. [브랜드명 - 제품명]**
+• <성과지표> 해당 사례의 구체적인 성공 수치
+• <핵심전략> 이 사례에서 배울 수 있는 핵심 성공 전략
+• <적용방안> {target_desc}에 이 전략을 어떻게 적용할 수 있는지
+
+**4-3. [브랜드명 - 제품명]**
+• <성과지표> 해당 사례의 구체적인 성공 수치
+• <핵심전략> 이 사례에서 배울 수 있는 핵심 성공 전략
+• <적용방안> {target_desc}에 이 전략을 어떻게 적용할 수 있는지
+
+반드시 위 형식을 준수하세요. 4-1, 4-2, 4-3 제목은 **굵은 글씨**로 표시하고, 하위 항목은 <성과지표>, <핵심전략>, <적용방안> 형식으로 작성하세요.
+Agent Insight는 작성하지 마세요."""
+
+            query2_response = generate_response(query2_prompt, max_new_tokens=800)
+            if query2_response:
+                # 마크다운 유지 (** 굵은글씨, <> 구분자)
+                query2_section = "\n\n" + query2_response.strip()
+                print("  [Marketing] Query 2 completed successfully")
+
+        # ===== 마케팅 타입: Query 3 - Agent Insight (종합 전략 요약) =====
+        agent_insight_content = ""
+        if insight_type == "marketing":
+            print("  [Marketing] Query 3: Generating Agent Insight summary...", flush=True)
+
+            # 이전 쿼리 결과를 캐시로 사용 (1~4번 내용)
+            cached_analysis = content.strip()
+            if query2_section:
+                cached_analysis += query2_section
+
+            query3_prompt = f"""당신은 K-뷰티 마케팅 전략 수석 컨설턴트입니다.
+
+[분석 대상]
+- 국가: {country_name}
+- 카테고리: {category}
+- 타겟: {target_desc}
+
+[이전 분석 내용 요약]
+{cached_analysis}
+
+위 분석 내용(타겟 오디언스, 채널 전략, 핵심 메시지, 과거 성공 사례)을 종합하여 최종 마케팅 전략을 간결하게 요약해주세요.
+
+다음 형식으로 정확히 작성해주세요 (5-6문장 이내로 핵심만):
+
+{country_name} {category} 시장에서 {target_desc}을 위한 최종 마케팅 전략입니다.
+
+**핵심 타겟** 집중해야 할 타겟층 (1문장)
+**추천 채널** 최우선 마케팅 채널 (1문장)
+**핵심 메시지** 캠페인 핵심 메시지/컨셉 (1문장)
+**벤치마크** 과거 성공 사례에서 배운 핵심 포인트 (1문장)
+**실행 액션** 즉시 실행 가능한 액션 (1문장)
+
+간결하고 실행 가능한 형태로 작성하세요. 각 항목은 **항목명** 형식으로 시작하고 콜론(:)은 넣지 마세요."""
+
+            query3_response = generate_response(query3_prompt, max_new_tokens=400)
+            if query3_response:
+                # Agent Insight는 마크다운(**굵은글씨**) 유지 - 프론트엔드에서 파싱함
+                agent_insight_content = query3_response.strip()
+                print(f"  [Marketing] Query 3 (Agent Insight) completed: {len(agent_insight_content)} chars", flush=True)
+            else:
+                print("  [Marketing] Query 3 FAILED - no response!", flush=True)
+
+        # 콘텐츠 조합 (Agent Insight는 별도 필드로 반환)
+        if insight_type == "marketing":
+            # Query 1 (1, 2, 3번) + Query 2 (4번) - Agent Insight는 별도
+            content = content.strip() + query2_section
+        else:
+            if "Agent Insight" not in content:
+                content = f"Agent Insight\n\n{content}"
+            if "Agent Conclusion" not in content:
+                content += "\n\nAgent Conclusion\n\n위 분석을 종합하면, 현재 시장 트렌드와 실제 사례를 기반으로 전략적 접근이 필요합니다."
 
         return jsonify({
             "success": True,
             "content": content,
+            "agentInsight": agent_insight_content if insight_type == "marketing" else "",
             "scope": scope,
             "type": insight_type,
             "keyword": keyword,

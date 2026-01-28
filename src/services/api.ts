@@ -5,6 +5,9 @@
 // @ts-ignore - Vite env types
 const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || '/api';
 
+// K-Beauty Atlas 서버 (포트 5002 - MongoDB Atlas 연결)
+const KBEAUTY_API_BASE_URL = (import.meta as any).env?.VITE_KBEAUTY_API_BASE_URL || 'http://localhost:5002/api';
+
 export interface LeaderboardItem {
   rank: number;
   keyword: string;
@@ -768,6 +771,7 @@ export interface RAGInsightRequest {
 export interface RAGInsightResponse {
   success: boolean;
   content: string;
+  agentInsight?: string;  // 마케팅 타입 전용: 1~4번 내용 종합 요약
   scope: string;
   type: string;
   keyword?: string;
@@ -1076,6 +1080,213 @@ export async function fetchLLMCategoryStrategy(
   } catch (error) {
     console.error('LLM 카테고리 전략 분석 오류:', error);
     return { success: false, marketAnalysis: '', opportunities: [], risks: [], strategies: [], actionPlan: [], error: String(error) };
+  }
+}
+
+// ===== 인사이트 저장/내보내기 API =====
+
+// 세션 ID 생성 (브라우저 세션당 고유)
+let _sessionId: string | null = null;
+export function getSessionId(): string {
+  if (!_sessionId) {
+    _sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+  return _sessionId;
+}
+
+// 인사이트 저장
+export async function saveInsight(
+  type: string,
+  title: string,
+  content: string,
+  metadata?: Record<string, any>
+): Promise<boolean> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/insights/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: getSessionId(),
+        type,
+        title,
+        content,
+        metadata
+      })
+    });
+    return response.ok;
+  } catch (error) {
+    console.error('인사이트 저장 오류:', error);
+    return false;
+  }
+}
+
+// 세션 인사이트 조회
+export async function getInsights(): Promise<{ insights: any[]; count: number }> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/insights/${getSessionId()}`);
+    if (!response.ok) return { insights: [], count: 0 };
+    return await response.json();
+  } catch (error) {
+    console.error('인사이트 조회 오류:', error);
+    return { insights: [], count: 0 };
+  }
+}
+
+// 인사이트 PDF 내보내기
+export async function exportInsightsPDF(): Promise<Blob | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/insights/export/pdf`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId: getSessionId() })
+    });
+    if (!response.ok) return null;
+    return await response.blob();
+  } catch (error) {
+    console.error('PDF 내보내기 오류:', error);
+    return null;
+  }
+}
+
+// 인사이트 Word 내보내기
+export async function exportInsightsWord(): Promise<Blob | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/insights/export/word`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId: getSessionId() })
+    });
+    if (!response.ok) return null;
+    return await response.blob();
+  } catch (error) {
+    console.error('Word 내보내기 오류:', error);
+    return null;
+  }
+}
+
+// ===== K-Beauty Atlas API Functions (포트 5002 - MongoDB Atlas) =====
+
+export interface KbeautyProduct {
+  id: string;
+  name: string;
+  brand: string;
+  price: string;
+  category: string;
+  imageUrl: string;
+  productUrl: string;
+  description: string;
+  keyIngredients: string[];
+  fullIngredients: string;
+  concerns: string[];
+  benefits: string[];
+  formulation: string;
+  skinType: string | string[];
+  marketingPoints: string[];
+  tags: string[];
+  isNew: boolean;
+  isBestSeller: boolean;
+  bestSellingRank: number | null;
+  createdAt: string | null;
+  reviews?: { text: string; rating: number; postedAt: string | null }[];
+}
+
+export interface KbeautyTrendsDataResponse {
+  category: string;
+  summary: {
+    totalProducts: number;
+    newProducts: number;
+    bestSellers: number;
+  };
+  brandSummaries: {
+    brand: string;
+    newProducts: { name: string; keyIngredients: string[]; concerns: string[]; benefits: string[]; description: string }[];
+    bestSellers: { name: string; keyIngredients: string[]; concerns: string[] }[];
+    newCount: number;
+    bestCount: number;
+  }[];
+  trends: {
+    ingredients: { name: string; new: number; best: number; total: number }[];
+    concerns: { name: string; new: number; best: number; total: number }[];
+    benefits: { name: string; new: number; best: number; total: number }[];
+  };
+  sampleNewProducts: KbeautyProduct[];
+  sampleBestSellers: KbeautyProduct[];
+}
+
+export interface KbeautyTrendsAnalysisRequest {
+  category: string;
+  brandSummaries: KbeautyTrendsDataResponse['brandSummaries'];
+  trends: KbeautyTrendsDataResponse['trends'];
+  sampleNewProducts: KbeautyProduct[];
+  sampleBestSellers: KbeautyProduct[];
+}
+
+export interface KbeautyTrendsAnalysisResponse {
+  success: boolean;
+  category: string;
+  brandStrategies: string[];
+  ingredientTrends: string[];
+  functionTrends: string[];
+  comparisonPoints: string[];
+  marketOutlook: string;
+  error?: string;
+}
+
+// K-Beauty 트렌드 분석용 데이터 조회 (Atlas 서버)
+export async function fetchKbeautyTrendsData(
+  category?: string
+): Promise<KbeautyTrendsDataResponse | null> {
+  try {
+    const params = new URLSearchParams();
+    if (category) params.set('category', category);
+
+    const url = params.toString()
+      ? `${KBEAUTY_API_BASE_URL}/real/kbeauty/trends-data?${params}`
+      : `${KBEAUTY_API_BASE_URL}/real/kbeauty/trends-data`;
+
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.error('K-Beauty 트렌드 데이터 API 오류:', response.status);
+      return null;
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('K-Beauty 트렌드 데이터 조회 오류:', error);
+    return null;
+  }
+}
+
+// K-Beauty 트렌드 LLM 분석 (Atlas 서버)
+export async function fetchKbeautyTrendsAnalysis(
+  data: KbeautyTrendsAnalysisRequest
+): Promise<KbeautyTrendsAnalysisResponse> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 180000);
+    const response = await fetch(`${KBEAUTY_API_BASE_URL}/llm/kbeauty-trends`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    const result = await response.json();
+    if (result.success) {
+      return result;
+    }
+    throw new Error(result.error || 'LLM server error');
+  } catch (error) {
+    console.error('K-Beauty 트렌드 LLM 분석 오류:', error);
+    return {
+      success: false,
+      category: data.category,
+      brandStrategies: [],
+      ingredientTrends: [],
+      functionTrends: [],
+      comparisonPoints: [],
+      marketOutlook: '',
+      error: String(error)
+    };
   }
 }
 

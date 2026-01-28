@@ -158,6 +158,21 @@ function renderContentLines(lines: string[]) {
     // Bullet points
     if (trimmed.startsWith('•') || trimmed.startsWith('-')) {
       const text = trimmed.replace(/^[•\-]\s*/, '');
+
+      // <태그> 형식 파싱 (e.g., <성과지표>, <핵심전략>, <적용방안>)
+      const tagMatch = text.match(/^<([^>]+)>\s*(.*)$/);
+      if (tagMatch) {
+        result.push(
+          <div key={idx} className="flex items-start gap-2.5 ml-2 my-1.5">
+            <span className="text-rose-400 mt-0.5 text-sm flex-shrink-0">&#9656;</span>
+            <span className="text-slate-600 text-sm leading-relaxed">
+              <span className="font-bold text-slate-800">{tagMatch[1]}:</span> {tagMatch[2]}
+            </span>
+          </div>
+        );
+        return;
+      }
+
       result.push(
         <div key={idx} className="flex items-start gap-2.5 ml-2 my-1.5">
           <span className="text-rose-400 mt-0.5 text-sm flex-shrink-0">&#9656;</span>
@@ -270,25 +285,71 @@ export default function ReportViewModal({ isOpen, onClose, reportResult }: Repor
               <div className="flex-1 overflow-y-auto">
                 <div className="p-7 space-y-6">
 
-                  {/* Numbered Strategy Sections */}
-                  {numberedSections.map((section, idx) => (
+                  {/* Numbered Strategy Sections - 각 섹션별 다른 색상 */}
+                  {numberedSections.filter(s => s.number !== 5).map((section, idx) => {
+                    // 섹션별 색상 설정
+                    const sectionColors: Record<number, { bg: string; border: string; numBg: string; titleColor: string }> = {
+                      1: { bg: 'bg-blue-50', border: 'border-blue-200', numBg: 'from-blue-500 to-blue-600', titleColor: 'text-blue-800' },
+                      2: { bg: 'bg-emerald-50', border: 'border-emerald-200', numBg: 'from-emerald-500 to-emerald-600', titleColor: 'text-emerald-800' },
+                      3: { bg: 'bg-violet-50', border: 'border-violet-200', numBg: 'from-violet-500 to-violet-600', titleColor: 'text-violet-800' },
+                      4: { bg: 'bg-amber-50', border: 'border-amber-200', numBg: 'from-amber-500 to-amber-600', titleColor: 'text-amber-800' },
+                    };
+                    const colors = sectionColors[section.number || 1] || sectionColors[1];
+
+                    return (
+                      <motion.div
+                        key={idx}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: idx * 0.1 }}
+                        className={`${colors.bg} rounded-xl p-5 border ${colors.border}`}
+                      >
+                        <div className="flex items-start gap-3 mb-3">
+                          <span className={`flex-shrink-0 w-7 h-7 rounded-full bg-gradient-to-br ${colors.numBg} text-white text-sm font-bold flex items-center justify-center shadow-sm`}>
+                            {section.number}
+                          </span>
+                          <h3 className={`text-lg font-bold ${colors.titleColor} pt-0.5`}>
+                            {section.title}
+                          </h3>
+                        </div>
+                        <div className="ml-10">
+                          {renderContentLines(section.content)}
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+
+                  {/* Section 5: Agent Insight - 핑크/마젠타 배경에 흰 글씨 */}
+                  {numberedSections.filter(s => s.number === 5).map((section, idx) => (
                     <motion.div
-                      key={idx}
+                      key={`insight-${idx}`}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: idx * 0.1 }}
-                      className="bg-slate-50 rounded-xl p-5 border border-slate-100"
+                      transition={{ delay: 0.5 }}
+                      className="bg-gradient-to-br from-rose-500 via-pink-500 to-fuchsia-500 rounded-xl p-6 text-white shadow-lg"
                     >
-                      <div className="flex items-start gap-3 mb-3">
-                        <span className={`flex-shrink-0 w-7 h-7 rounded-full bg-gradient-to-br ${config.gradient} text-white text-sm font-bold flex items-center justify-center`}>
-                          {section.number}
-                        </span>
-                        <h3 className="text-lg font-bold text-slate-800 pt-0.5">
-                          {section.title}
-                        </h3>
+                      <div className="flex items-center gap-2.5 mb-4">
+                        <Lightbulb className="w-6 h-6 text-yellow-200" />
+                        <h3 className="text-xl font-bold">{section.title}</h3>
                       </div>
-                      <div className="ml-10">
-                        {renderContentLines(section.content)}
+                      <div className="bg-white/15 backdrop-blur-sm rounded-lg p-4">
+                        <div className="text-white/95 text-sm leading-relaxed space-y-2">
+                          {section.content.map((line, lineIdx) => {
+                            const trimmed = line.trim();
+                            if (!trimmed) return null;
+                            // 번호 매기기된 줄 처리
+                            if (/^\d+\./.test(trimmed)) {
+                              return (
+                                <div key={lineIdx} className="flex items-start gap-2 mt-2">
+                                  <span className="text-yellow-200 font-bold">{trimmed.match(/^\d+/)?.[0]}.</span>
+                                  <span>{trimmed.replace(/^\d+\.\s*/, '')}</span>
+                                </div>
+                              );
+                            }
+                            // 일반 줄
+                            return <p key={lineIdx}>{trimmed}</p>;
+                          })}
+                        </div>
                       </div>
                     </motion.div>
                   ))}
@@ -335,20 +396,60 @@ export default function ReportViewModal({ isOpen, onClose, reportResult }: Repor
                     </motion.div>
                   )}
 
-                  {/* Agent Insight - Conclusion (Big section at the end) */}
-                  {conclusionSection && (
+                  {/* Agent Insight - 별도 박스 (마케팅 타입 전용) */}
+                  {reportResult.agentInsight && (
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.5 }}
                       className="mt-8"
                     >
-                      <div className={`bg-gradient-to-br ${config.gradient} rounded-xl p-6 text-white shadow-lg`}>
+                      <div className="bg-gradient-to-br from-rose-500 via-pink-500 to-fuchsia-500 rounded-xl p-6 text-white shadow-lg">
+                        <div className="flex items-center gap-2.5 mb-4">
+                          <Lightbulb className="w-6 h-6 text-yellow-200" />
+                          <h3 className="text-xl font-bold">Agent Insight</h3>
+                          <span className="ml-auto text-xs bg-white/20 px-2 py-1 rounded-full">AI 종합 전략</span>
+                        </div>
+                        <div className="bg-white/15 backdrop-blur-sm rounded-lg p-4">
+                          <div className="text-white/95 text-sm leading-relaxed space-y-2">
+                            {reportResult.agentInsight.split('\n').map((line, idx) => {
+                              const trimmed = line.trim();
+                              if (!trimmed) return null;
+                              // 볼드 처리된 카테고리 (• **항목** 또는 **항목:**)
+                              if (trimmed.includes('**')) {
+                                const match = trimmed.match(/\*\*(.+?)\*\*:*\s*(.*)/);
+                                if (match) {
+                                  return (
+                                    <div key={idx} className="flex items-start gap-2">
+                                      <span className="text-yellow-200 font-bold flex-shrink-0">{match[1]}:</span>
+                                      <span>{match[2]}</span>
+                                    </div>
+                                  );
+                                }
+                              }
+                              // 일반 줄
+                              return <p key={idx}>{trimmed.replace(/\*\*/g, '')}</p>;
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Agent Insight - Conclusion (섹션 5로 표시되지 않는 경우 fallback, agentInsight 없을 때만) */}
+                  {!reportResult.agentInsight && conclusionSection && numberedSections.filter(s => s.number === 5).length === 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.5 }}
+                      className="mt-8"
+                    >
+                      <div className="bg-gradient-to-br from-rose-500 via-pink-500 to-fuchsia-500 rounded-xl p-6 text-white shadow-lg">
                         <div className="flex items-center gap-2.5 mb-4">
                           <Lightbulb className="w-6 h-6 text-yellow-200" />
                           <h3 className="text-xl font-bold">Agent Insight</h3>
                         </div>
-                        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+                        <div className="bg-white/15 backdrop-blur-sm rounded-lg p-4">
                           <p className="text-white/95 text-sm leading-relaxed">
                             {conclusionSection.content.join(' ').replace(/\s+/g, ' ').trim()}
                           </p>

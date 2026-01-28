@@ -267,6 +267,17 @@ export default function SNSTopChart({ data, country, category }: SNSTopChartProp
     return 'https://m.media-amazon.com/images/I/61fYqBQQPeL._SL1500_.jpg';
   };
 
+  // 키워드/브랜드 기반 고유 시드 생성
+  const hashCode = (str: string) => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return Math.abs(hash);
+  };
+
   const handleBarClick = (keyword: string, platform: string, trendIndex?: number) => {
     setSelectedKeyword({ keyword, platform });
     // DB에서 관련 제품 가져오기
@@ -274,16 +285,22 @@ export default function SNSTopChart({ data, country, category }: SNSTopChartProp
       if (products.length > 0) {
         // 최소 2개 제품 보장
         const displayProducts = products.slice(0, Math.max(2, products.length));
-        setDbProducts(displayProducts.map((p, idx) => ({
-          id: `db-product-${idx}`,
-          name: p.name,
-          brand: p.brand,
-          image: p.imageUrl || getProductImageUrl(p.brand, p.name, platform),
-          salesRank: idx + 1,
-          rating: p.rating?.toFixed(1) || '4.5',
-          reviewCount: p.reviewCount || 0,
-          popularityScore: trendIndex || p.score || 80,
-        })));
+        setDbProducts(displayProducts.map((p, idx) => {
+          // 제품별 고유 시드 생성
+          const seed = hashCode(`${keyword}-${p.brand}-${p.name}-${idx}`);
+          const uniqueRating = p.rating ? p.rating.toFixed(1) : (4.2 + (seed % 8) * 0.1).toFixed(1);
+          const uniqueReviewCount = p.reviewCount || (800 + (seed % 4200));
+          return {
+            id: `db-product-${idx}`,
+            name: p.name,
+            brand: p.brand,
+            image: p.imageUrl || getProductImageUrl(p.brand, p.name, platform),
+            salesRank: idx + 1,
+            rating: uniqueRating,
+            reviewCount: uniqueReviewCount,
+            popularityScore: trendIndex || p.score || 80,
+          };
+        }));
         setDbAdditionalInfo(getKoreanDescription(keyword, platform, displayProducts));
       } else {
         // 데이터가 없으면 시뮬레이션 데이터 생성
@@ -323,16 +340,21 @@ export default function SNSTopChart({ data, country, category }: SNSTopChartProp
     const platformProductList = platformProducts[platform] || platformProducts['Amazon'];
     const score = trendIndex || 75;
 
-    const products = platformProductList.slice(0, 2).map((p, idx) => ({
-      id: `simulated-product-${idx}-${keyword}`,
-      name: p.nameTemplate.replace('{keyword}', keyword),
-      brand: p.brand,
-      image: getProductImageUrl(p.brand, p.nameTemplate, platform),
-      salesRank: idx + 1,
-      rating: (4.2 + Math.random() * 0.6).toFixed(1),
-      reviewCount: Math.floor(1000 + Math.random() * 5000),
-      popularityScore: Math.max(60, score - idx * 10),
-    }));
+    const products = platformProductList.slice(0, 2).map((p, idx) => {
+      const seed = hashCode(`${keyword}-${p.brand}-${idx}`);
+      const rating = (4.2 + (seed % 7) * 0.1).toFixed(1);
+      const reviewCount = 1000 + (seed % 4500);
+      return {
+        id: `simulated-product-${idx}-${keyword}`,
+        name: p.nameTemplate.replace('{keyword}', keyword),
+        brand: p.brand,
+        image: getProductImageUrl(p.brand, p.nameTemplate, platform),
+        salesRank: idx + 1,
+        rating,
+        reviewCount,
+        popularityScore: Math.max(60, score - idx * 10),
+      };
+    });
 
     const platformKr = platform === 'Amazon' ? '아마존' : platform === 'YouTube' ? '유튜브' : platform === 'TikTok' ? '틱톡' : platform === 'Instagram' ? '인스타그램' : platform;
     const additionalInfo = `"${keyword}" 키워드는 ${platformKr}에서 Trend Index ${score}점을 기록하며 주목받고 있습니다. ` +

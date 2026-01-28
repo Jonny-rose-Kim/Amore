@@ -159,6 +159,7 @@ export type CountryLeaderboardData = {
 export interface ReportResult {
   type: 'marketing' | 'npd' | 'overseas';
   content: string;
+  agentInsight?: string;  // 마케팅 타입 전용: 최종 전략 요약
   sources?: { title: string; source: string }[];
   scope?: 'keyword' | 'category';
   keyword?: string;

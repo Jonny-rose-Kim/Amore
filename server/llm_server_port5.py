@@ -8,11 +8,33 @@ import json
 import re
 import torch
 import setproctitle
+import threading
+import time
+import gc
 setproctitle.setproctitle("wook-llm-port5")
 from flask import Flask, request, jsonify
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 app = Flask(__name__)
+
+# ===== CUDA Error Handling =====
+inference_semaphore = threading.Semaphore(1)
+MAX_RETRIES = 2
+CUDA_ERROR_COUNT = 0
+MAX_CUDA_ERRORS = 5
+
+def reset_cuda_state():
+    """CUDA 상태 초기화"""
+    global CUDA_ERROR_COUNT
+    try:
+        torch.cuda.empty_cache()
+        gc.collect()
+        print("[CUDA] Memory cache cleared")
+    except Exception as e:
+        print(f"[CUDA] Cache clear failed: {e}")
+    CUDA_ERROR_COUNT += 1
+    if CUDA_ERROR_COUNT >= MAX_CUDA_ERRORS:
+        print(f"[WARNING] CUDA errors exceeded {MAX_CUDA_ERRORS}. Server restart recommended.")
 
 # GPU 설정
 DEVICE = "cuda:5"
@@ -37,28 +59,58 @@ SYSTEM_PROMPT = """당신은 글로벌 K-뷰티(K-Beauty) 시장 분석 및 화�
 
 
 def generate_response(prompt: str, max_new_tokens: int = 1024) -> str:
-    """Generate a response from the LLM"""
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": prompt}
-    ]
+    """Generate a response from the LLM with CUDA error handling"""
+    global CUDA_ERROR_COUNT
 
-    text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-    inputs = tokenizer(text, return_tensors="pt").to(DEVICE)
+    acquired = inference_semaphore.acquire(timeout=120)
+    if not acquired:
+        raise RuntimeError("Inference timeout: too many concurrent requests")
 
-    with torch.no_grad():
-        outputs = model.generate(
-            **inputs,
-            max_new_tokens=max_new_tokens,
-            temperature=0.7,
-            top_p=0.9,
-            do_sample=True,
-            repetition_penalty=1.1,
-        )
+    try:
+        for attempt in range(MAX_RETRIES + 1):
+            try:
+                messages = [
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt}
+                ]
 
-    generated = outputs[0][inputs["input_ids"].shape[1]:]
-    response = tokenizer.decode(generated, skip_special_tokens=True)
-    return response.strip()
+                text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+                inputs = tokenizer(text, return_tensors="pt").to(DEVICE)
+
+                with torch.no_grad():
+                    outputs = model.generate(
+                        **inputs,
+                        max_new_tokens=max_new_tokens,
+                        temperature=0.75,
+                        top_p=0.9,
+                        top_k=50,
+                        do_sample=True,
+                        repetition_penalty=1.05,
+                    )
+
+                generated = outputs[0][inputs["input_ids"].shape[1]:]
+                response = tokenizer.decode(generated, skip_special_tokens=True)
+                CUDA_ERROR_COUNT = max(0, CUDA_ERROR_COUNT - 1)
+                return response.strip()
+
+            except RuntimeError as e:
+                error_msg = str(e)
+                is_cuda_error = "CUDA" in error_msg or "device-side assert" in error_msg or "out of memory" in error_msg.lower()
+                is_prob_error = "probability tensor" in error_msg or "inf" in error_msg or "nan" in error_msg
+
+                if is_cuda_error or is_prob_error:
+                    print(f"[INFERENCE ERROR] Attempt {attempt + 1}/{MAX_RETRIES + 1}: {error_msg[:100]}")
+                    reset_cuda_state()
+                    if attempt < MAX_RETRIES:
+                        time.sleep(2)
+                        continue
+                    else:
+                        raise RuntimeError(f"Inference error after {MAX_RETRIES + 1} attempts")
+                else:
+                    raise
+    finally:
+        inference_semaphore.release()
+        torch.cuda.empty_cache()
 
 
 def clean_text(text: str) -> str:
@@ -78,7 +130,7 @@ def clean_text(text: str) -> str:
 
 @app.route("/api/llm/sns-analysis", methods=["POST"])
 def sns_analysis():
-    """Retail/SNS 인기 키워드 AI 분석 생성"""
+    """Retail/SNS 인기 키워드 AI 분석 생성 - Multi-Query 방식"""
     try:
         data = request.json
         country = data.get("country", "usa")
@@ -94,112 +146,165 @@ def sns_analysis():
         # 플랫폼별 키워드를 Retail/SNS로 분리
         retail_platforms = []
         sns_platforms = []
-        retail_names = ["Amazon", "Sephora", "Ulta", "Olive Young", "Watsons", "Guardian", "Shopee", "Lazada", "Rakuten", "Qoo10"]
+        retail_names = ["Amazon", "Sephora", "Ulta", "Olive Young", "Watsons", "Guardian", "Shopee", "Lazada", "Rakuten", "Qoo10", "@cosme", "Cosme"]
         sns_names = ["Instagram", "TikTok", "YouTube", "Twitter", "Facebook", "Pinterest", "Reddit", "Threads"]
 
         for p in platforms[:8]:
             platform_name = p.get('platform', '')
             keywords_list = p.get("keywords", [])[:5]
             keywords_str = ", ".join([f"{k['name']}({k['value']}점)" for k in keywords_list])
-            platform_data = f"• {platform_name}: {keywords_str}"
+            platform_data = f"- {platform_name}: {keywords_str}"
 
             if any(rn.lower() in platform_name.lower() for rn in retail_names):
                 retail_platforms.append(platform_data)
             else:
                 sns_platforms.append(platform_data)
 
-        retail_info = "\n".join(retail_platforms) if retail_platforms else "• 데이터 없음"
-        sns_info = "\n".join(sns_platforms) if sns_platforms else "• 데이터 없음"
+        retail_info = "\n".join(retail_platforms) if retail_platforms else "- 데이터 없음"
+        sns_info = "\n".join(sns_platforms) if sns_platforms else "- 데이터 없음"
 
-        prompt = f"""다음은 {country_name} 시장의 {category} 카테고리에서 Retail과 SNS 채널별 인기 키워드 데이터입니다.
+        # 공통 출력 규칙
+        output_rules = """
+[출력 규칙]
+- 반드시 한국어로 작성
+- 텍스트와 숫자 중심으로 구체적으로 작성
+- 특수기호, 이모지, 박스 문자 사용 금지
+- 구분이 필요하면 1. 2. 3. 또는 - 로 표시
+- 각 문장은 완성된 형태로 작성"""
+
+        print(f"  Multi-Query SNS Analysis: Starting for {country_name} {category}...")
+        sub_results = {}
+
+        # ===== Sub Query 1: Retail 채널 분석 =====
+        print("    [1/4] Retail 채널 분석...")
+        prompt_retail = f"""다음은 {country_name} 시장 {category} 카테고리의 Retail 채널 인기 키워드 데이터입니다.
 
 [Retail 채널 데이터]
 {retail_info}
 
+위 데이터를 바탕으로 Retail 채널 분석을 작성해주세요.
+
+[Retail 채널 분석]
+
+1. 주요 트렌드
+- 상위 키워드와 점수를 근거로 현재 트렌드 설명 (2-3문장)
+
+2. 소비자 특성
+- Retail 구매자들의 관심사와 구매 패턴 (1-2문장)
+
+3. 수치 기반 인사이트
+- 키워드별 점수 차이가 의미하는 바 (1-2문장)
+{output_rules}"""
+
+        sub_results['retail'] = generate_response(prompt_retail, max_new_tokens=400)
+
+        # ===== Sub Query 2: SNS 채널 분석 =====
+        print("    [2/4] SNS 채널 분석...")
+        prompt_sns = f"""다음은 {country_name} 시장 {category} 카테고리의 SNS 채널 인기 키워드 데이터입니다.
+
 [SNS 채널 데이터]
 {sns_info}
 
-위 데이터를 Retail과 SNS를 명확히 구분하여 분석해주세요. 반드시 아래 형식을 정확히 따라주세요:
+위 데이터를 바탕으로 SNS 채널 분석을 작성해주세요.
 
-[Retail분석]
-• 주요 트렌드: Retail 채널에서 가장 주목받는 키워드와 점수를 근거로 트렌드 설명 (2-3문장)
-• 소비자 특성: Retail 구매자들의 관심사와 구매 패턴 분석 (1-2문장)
-• 수치 근거: 상위 키워드의 점수와 순위를 구체적으로 언급
+[SNS 채널 분석]
 
-[SNS분석]
-• 주요 트렌드: SNS 채널에서 가장 주목받는 키워드와 점수를 근거로 트렌드 설명 (2-3문장)
-• 바이럴 포인트: SNS에서 화제가 되는 요소와 콘텐츠 유형 분석 (1-2문장)
-• 수치 근거: 상위 키워드의 점수와 순위를 구체적으로 언급
+1. 주요 트렌드
+- 상위 키워드와 점수를 근거로 현재 바이럴 트렌드 설명 (2-3문장)
 
-[핵심인사이트]
-1. Retail과 SNS 공통 트렌드 (수치 근거 포함)
-2. Retail 고유 인사이트 (수치 근거 포함)
-3. SNS 고유 인사이트 (수치 근거 포함)
+2. 바이럴 포인트
+- SNS에서 화제가 되는 요소와 콘텐츠 유형 (1-2문장)
 
-[전략제안]
-1. Retail 채널 활용 전략
-2. SNS 채널 활용 전략
-3. 통합 마케팅 전략"""
+3. 수치 기반 인사이트
+- 플랫폼별 키워드 점수가 의미하는 바 (1-2문장)
+{output_rules}"""
 
-        response = generate_response(prompt, max_new_tokens=1200)
-        # 마크다운 포맷팅 제거
-        response = clean_text(response)
+        sub_results['sns'] = generate_response(prompt_sns, max_new_tokens=400)
 
-        # Parse response - 새로운 구조화된 형식
-        retail_analysis = ""
-        sns_analysis_text = ""
+        # ===== Sub Query 3: 핵심 인사이트 =====
+        print("    [3/4] 핵심 인사이트 도출...")
+        prompt_insights = f"""다음은 {country_name} {category} 시장의 Retail과 SNS 채널 분석 결과입니다.
+
+[Retail 채널 분석]
+{sub_results.get('retail', '')}
+
+[SNS 채널 분석]
+{sub_results.get('sns', '')}
+
+위 분석을 종합하여 핵심 인사이트 3가지를 도출해주세요.
+
+[핵심 인사이트]
+
+1. (Retail과 SNS 공통 트렌드 - 수치 근거 포함)
+
+2. (Retail 채널 고유 인사이트 - 수치 근거 포함)
+
+3. (SNS 채널 고유 인사이트 - 수치 근거 포함)
+{output_rules}"""
+
+        sub_results['insights'] = generate_response(prompt_insights, max_new_tokens=400)
+
+        # ===== Sub Query 4: 전략 제안 =====
+        print("    [4/4] 전략 제안 생성...")
+        prompt_strategy = f"""다음은 {country_name} {category} 시장 분석 결과입니다.
+
+[Retail 채널 분석]
+{sub_results.get('retail', '')}
+
+[SNS 채널 분석]
+{sub_results.get('sns', '')}
+
+[핵심 인사이트]
+{sub_results.get('insights', '')}
+
+위 분석을 바탕으로 K-뷰티 브랜드를 위한 전략을 제안해주세요.
+
+[전략 제안]
+
+1. Retail 채널 전략
+- 구체적인 실행 방안 (1-2문장)
+
+2. SNS 채널 전략
+- 구체적인 실행 방안 (1-2문장)
+
+3. 통합 마케팅 전략
+- Retail과 SNS를 연계한 전략 (1-2문장)
+{output_rules}"""
+
+        sub_results['strategy'] = generate_response(prompt_strategy, max_new_tokens=400)
+
+        print("  Multi-Query 완료: 결과 정리 중...")
+
+        # ===== 결과 파싱 및 정리 =====
+        retail_analysis = clean_text(sub_results.get('retail', ''))
+        sns_analysis_text = clean_text(sub_results.get('sns', ''))
+
+        # 인사이트 파싱
+        insights_raw = sub_results.get('insights', '')
         insights = []
-        recommendations = []
-        current_section = None
-        retail_lines = []
-        sns_lines = []
-        insight_lines = []
-        strategy_lines = []
-
-        lines = response.split("\n")
-        for line in lines:
+        for line in insights_raw.split('\n'):
             line = line.strip()
-            if not line:
-                continue
-
-            # 섹션 헤더 감지
-            if any(kw in line for kw in ["[Retail분석]", "Retail분석:", "Retail 분석"]):
-                current_section = "retail"
-                continue
-            elif any(kw in line for kw in ["[SNS분석]", "SNS분석:", "SNS 분석"]):
-                current_section = "sns"
-                continue
-            elif any(kw in line for kw in ["[핵심인사이트]", "핵심인사이트:", "핵심 인사이트"]):
-                current_section = "insights"
-                continue
-            elif any(kw in line for kw in ["[전략제안]", "전략제안:", "전략 제안"]):
-                current_section = "strategy"
-                continue
-
-            # 섹션별 내용 수집
-            if current_section == "retail":
-                retail_lines.append(line)
-            elif current_section == "sns":
-                sns_lines.append(line)
-            elif current_section == "insights":
+            if line and len(line) > 10:
                 clean_line = line.lstrip("0123456789.-•→·)#* ").strip()
-                if clean_line and len(clean_line) > 5:
-                    insight_lines.append(clean_line)
-            elif current_section == "strategy":
-                clean_line = line.lstrip("0123456789.-•→·)#* ").strip()
-                if clean_line and len(clean_line) > 5:
-                    strategy_lines.append(clean_line)
+                if clean_line and len(clean_line) > 10:
+                    insights.append(clean_text(clean_line))
+        insights = insights[:5]
 
-        # 결과 조합
-        retail_analysis = clean_text(" ".join(retail_lines)) if retail_lines else ""
-        sns_analysis_text = clean_text(" ".join(sns_lines)) if sns_lines else ""
-        insights = [clean_text(i) for i in insight_lines if clean_text(i)][:5]
-        recommendations = [clean_text(r) for r in strategy_lines if clean_text(r)][:4]
+        # 전략 파싱
+        strategy_raw = sub_results.get('strategy', '')
+        recommendations = []
+        for line in strategy_raw.split('\n'):
+            line = line.strip()
+            if line and len(line) > 10:
+                clean_line = line.lstrip("0123456789.-•→·)#* ").strip()
+                if clean_line and len(clean_line) > 10:
+                    recommendations.append(clean_text(clean_line))
+        recommendations = recommendations[:4]
 
         # Fallback
-        if not retail_analysis:
+        if not retail_analysis or len(retail_analysis) < 20:
             retail_analysis = f"{country_name} Retail 채널에서는 검증된 효과와 브랜드 신뢰도가 구매 결정에 중요한 역할을 합니다."
-        if not sns_analysis_text:
+        if not sns_analysis_text or len(sns_analysis_text) < 20:
             sns_analysis_text = f"{country_name} SNS 채널에서는 트렌디한 성분과 비주얼이 바이럴 확산에 핵심입니다."
         if not insights:
             insights = [
@@ -215,7 +320,7 @@ def sns_analysis():
             ]
 
         # 요약 텍스트 생성
-        summary = f"📊 Retail 분석: {retail_analysis[:200]}{'...' if len(retail_analysis) > 200 else ''}\n\n📱 SNS 분석: {sns_analysis_text[:200]}{'...' if len(sns_analysis_text) > 200 else ''}"
+        summary = f"Retail 분석: {retail_analysis[:150]}...\n\nSNS 분석: {sns_analysis_text[:150]}..."
 
         return jsonify({
             "success": True,
@@ -224,10 +329,13 @@ def sns_analysis():
             "snsAnalysis": sns_analysis_text,
             "insights": insights,
             "recommendations": recommendations,
+            "multiQuery": True,
         })
 
     except Exception as e:
         print(f"Error in sns_analysis: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
 

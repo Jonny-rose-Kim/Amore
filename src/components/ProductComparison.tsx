@@ -2,8 +2,8 @@ import { motion } from 'framer-motion';
 import { Sparkles, Loader2, Bot, Zap, ArrowRight } from 'lucide-react';
 import { OverseasProduct } from './OverseasProductList';
 import { DomesticProduct } from './DomesticProductList';
-import { useState } from 'react';
-import { fetchWhitespaceProductAnalysis } from '../services/api';
+import { useState, useEffect } from 'react';
+import { fetchWhitespaceProductAnalysis, saveInsight } from '../services/api';
 
 interface ProductComparisonProps {
   overseasProduct: OverseasProduct | null;
@@ -45,6 +45,13 @@ export default function ProductComparison({ overseasProduct, domesticProduct, co
   const [comparisonResult, setComparisonResult] = useState<ComparisonResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // 제품 변경 시 분석 결과 초기화
+  useEffect(() => {
+    setComparisonResult(null);
+    setError(null);
+    setIsAnalyzing(false);
+  }, [overseasProduct?.name, domesticProduct?.name]);
+
   const startAnalysis = () => {
     if (!overseasProduct || !domesticProduct) return;
 
@@ -80,6 +87,34 @@ export default function ProductComparison({ overseasProduct, domesticProduct, co
           domesticImage: domesticProduct.image,
           agentInsight: result.agentInsight,
         });
+
+        // 인사이트 자동 저장
+        const fullContent = `
+## 제품 비교 분석
+
+### ${overseasProduct.name} (해외)
+${result.overseasSummary}
+
+### ${domesticProduct.name} (K-Beauty)
+${result.domesticSummary}
+
+### AI 인사이트: ${result.agentInsight.title}
+${result.agentInsight.points.map((p: string) => `- ${p}`).join('\n')}
+
+**요약:** ${result.agentInsight.summary}
+        `.trim();
+
+        saveInsight(
+          'comparison',
+          `제품 비교: ${overseasProduct.name} vs ${domesticProduct.name}`,
+          fullContent,
+          {
+            overseasProduct: overseasProduct.name,
+            domesticProduct: domesticProduct.name,
+            country,
+            category: overseasProduct.category
+          }
+        );
       } else {
         setError(result.error || 'AI 분석에 실패했습니다.');
       }
@@ -98,7 +133,7 @@ export default function ProductComparison({ overseasProduct, domesticProduct, co
           <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-rose-100 to-purple-100 rounded-2xl flex items-center justify-center shadow-inner">
             <Sparkles className="w-10 h-10 text-rose-400" />
           </div>
-          <h4 className="text-slate-800 font-bold text-lg mb-3">AI 제품 비교 분석</h4>
+          <h4 className="text-slate-800 font-bold text-2xl mb-3">AI 제품 비교 분석</h4>
           <p className="text-slate-500 text-sm leading-relaxed">
             양쪽 리스트에서 비교할 제품을 선택해주세요.<br />
             <span className="text-rose-500 font-medium">AI가 두 제품의 차이점과 인사이트를 분석</span>해 드립니다.
@@ -122,31 +157,31 @@ export default function ProductComparison({ overseasProduct, domesticProduct, co
   // 두 제품이 모두 선택되었지만 아직 분석 시작 전 - 제품 미리보기와 버튼 표시
   if (overseasProduct && domesticProduct && !isAnalyzing && !comparisonResult && !error) {
     return (
-      <div className="bg-gradient-to-br from-violet-50 to-rose-50 backdrop-blur-sm border border-violet-200/80 rounded-xl p-6 shadow-xl h-full flex flex-col">
-        <div className="flex items-center gap-2 mb-4">
-          <Sparkles className="w-5 h-5 text-violet-500" />
-          <h4 className="text-slate-800 font-bold text-lg">AI 제품 비교 분석</h4>
+      <div className="bg-gradient-to-br from-violet-50 to-rose-50 backdrop-blur-sm border border-violet-200/80 rounded-xl p-4 shadow-xl h-full flex flex-col">
+        <div className="flex items-center gap-2 mb-2">
+          <Sparkles className="w-4 h-4 text-violet-500" />
+          <h4 className="text-slate-800 font-bold text-xl">AI 제품 비교</h4>
         </div>
 
         {/* 두 제품 미리보기 */}
-        <div className="flex-1 flex items-center justify-center gap-6">
+        <div className="flex-1 flex items-center justify-center gap-4">
           {/* 해외 제품 */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             className="text-center"
           >
-            <div className="w-28 h-28 rounded-2xl overflow-hidden border-3 border-blue-400 shadow-lg mb-3 mx-auto bg-white">
+            <div className="w-56 h-56 rounded-2xl overflow-hidden border-4 border-blue-400 shadow-xl mb-2 mx-auto bg-white">
               {overseasProduct.image ? (
                 <img src={overseasProduct.image} alt={overseasProduct.name} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-blue-100">
-                  <span className="text-4xl">🌍</span>
+                  <span className="text-7xl">🌍</span>
                 </div>
               )}
             </div>
             <p className="text-blue-600 font-semibold text-sm">{overseasProduct.brand}</p>
-            <p className="text-slate-700 text-xs mt-0.5 max-w-[120px] truncate">{overseasProduct.name}</p>
+            <p className="text-slate-700 text-xs mt-0.5 max-w-[140px] truncate">{overseasProduct.name}</p>
           </motion.div>
 
           {/* VS 표시 */}
@@ -156,8 +191,8 @@ export default function ProductComparison({ overseasProduct, domesticProduct, co
             transition={{ delay: 0.2 }}
             className="flex flex-col items-center"
           >
-            <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-rose-500 rounded-full flex items-center justify-center shadow-lg">
-              <span className="text-white font-bold text-sm">VS</span>
+            <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-rose-500 rounded-full flex items-center justify-center shadow-lg">
+              <span className="text-white font-bold text-xs">VS</span>
             </div>
           </motion.div>
 
@@ -167,17 +202,17 @@ export default function ProductComparison({ overseasProduct, domesticProduct, co
             animate={{ opacity: 1, x: 0 }}
             className="text-center"
           >
-            <div className="w-28 h-28 rounded-2xl overflow-hidden border-3 border-rose-400 shadow-lg mb-3 mx-auto bg-white">
+            <div className="w-56 h-56 rounded-2xl overflow-hidden border-4 border-rose-400 shadow-xl mb-2 mx-auto bg-white">
               {domesticProduct.image ? (
                 <img src={domesticProduct.image} alt={domesticProduct.name} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-rose-100">
-                  <span className="text-4xl">🇰🇷</span>
+                  <span className="text-7xl">🇰🇷</span>
                 </div>
               )}
             </div>
             <p className="text-rose-600 font-semibold text-sm">{domesticProduct.brand}</p>
-            <p className="text-slate-700 text-xs mt-0.5 max-w-[120px] truncate">{domesticProduct.name}</p>
+            <p className="text-slate-700 text-xs mt-0.5 max-w-[140px] truncate">{domesticProduct.name}</p>
           </motion.div>
         </div>
 
@@ -220,7 +255,7 @@ export default function ProductComparison({ overseasProduct, domesticProduct, co
       <div className="bg-gradient-to-br from-slate-50 to-rose-50/30 backdrop-blur-sm border border-slate-200/80 rounded-xl p-6 shadow-xl h-full flex flex-col">
         <div className="flex items-center gap-2 mb-4">
           <Sparkles className="w-5 h-5 text-rose-400" />
-          <h4 className="text-slate-800 font-bold text-lg">AI 제품 비교 분석</h4>
+          <h4 className="text-slate-800 font-bold text-2xl">AI 제품 비교 분석</h4>
         </div>
 
         <div className="flex-1 flex flex-col items-center justify-center">
@@ -341,10 +376,10 @@ export default function ProductComparison({ overseasProduct, domesticProduct, co
             <img
               src={comparisonResult.overseasImage}
               alt={overseasProduct.name}
-              className="w-32 h-32 object-cover rounded-lg mb-3 border border-blue-200"
+              className="w-44 h-44 object-cover rounded-lg mb-3 border border-blue-200"
             />
           ) : (
-            <div className="w-32 h-32 bg-blue-200 rounded-lg mb-3 flex items-center justify-center">
+            <div className="w-44 h-44 bg-blue-200 rounded-lg mb-3 flex items-center justify-center">
               <span className="text-blue-600 text-4xl">🌍</span>
             </div>
           )}
@@ -363,10 +398,10 @@ export default function ProductComparison({ overseasProduct, domesticProduct, co
             <img
               src={comparisonResult.domesticImage}
               alt={domesticProduct.name}
-              className="w-32 h-32 object-cover rounded-lg mb-3 border border-rose-200"
+              className="w-44 h-44 object-cover rounded-lg mb-3 border border-rose-200"
             />
           ) : (
-            <div className="w-32 h-32 bg-rose-200 rounded-lg mb-3 flex items-center justify-center">
+            <div className="w-44 h-44 bg-rose-200 rounded-lg mb-3 flex items-center justify-center">
               <span className="text-rose-600 text-4xl">🇰🇷</span>
             </div>
           )}

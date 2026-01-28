@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Package, TrendingUp, Star, BarChart3, ChevronDown, Sparkles, Info } from 'lucide-react';
+import { X, Package, TrendingUp, BarChart3, ChevronDown, Sparkles, Info } from 'lucide-react';
 import { useState } from 'react';
 
 interface BestSellerProduct {
@@ -81,13 +81,11 @@ function ProductImage({ src, alt, platform }: { src?: string; alt: string; platf
 // 제품별 AI 설명 생성
 const generateProductDescription = (product: BestSellerProduct, keyword: string, platform: string): string => {
   const platformKr = platform === 'Amazon' ? '아마존' : platform === 'YouTube' ? '유튜브' : platform === 'Instagram' ? '인스타그램' : platform;
-  const rating = typeof product.rating === 'number' ? product.rating.toFixed(1) : product.rating;
 
   const descriptions: string[] = [
     `${product.brand}의 ${product.name}은(는) "${keyword}" 키워드로 ${platformKr}에서 높은 인기를 얻고 있는 제품입니다.`,
-    `평점 ${rating}점, 리뷰 ${product.reviewCount.toLocaleString()}개를 보유하고 있으며, 소비자들 사이에서 검증된 제품입니다.`,
-    `특히 ${keyword} 관련 효능으로 많은 사랑을 받고 있으며, K-Beauty 트렌드를 선도하는 제품 중 하나입니다.`,
-    `구매 전환율이 높고, 재구매율도 우수한 것으로 분석됩니다.`
+    `소비자들 사이에서 검증된 제품으로, 특히 ${keyword} 관련 효능으로 많은 사랑을 받고 있습니다.`,
+    `K-Beauty 트렌드를 선도하는 제품 중 하나이며, 구매 전환율이 높고 재구매율도 우수한 것으로 분석됩니다.`
   ];
 
   return descriptions.join(' ');
@@ -261,17 +259,8 @@ export default function ProductDetailModal({
                                 <ChevronDown className="w-5 h-5" />
                               </motion.div>
                             </div>
-                            <div className="space-y-2 pt-2 border-t border-slate-100">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                                  <span className="text-sm font-semibold text-slate-800">
-                                    {typeof product?.rating === 'number' ? product.rating.toFixed(1) : product?.rating || '4.5'}
-                                  </span>
-                                  <span className="text-xs text-slate-500">
-                                    ({(product?.reviewCount || 0).toLocaleString()} 리뷰)
-                                  </span>
-                                </div>
+                            <div className="pt-2 border-t border-slate-100">
+                              <div className="flex items-center justify-end">
                                 <div className="flex items-center gap-1">
                                   <TrendingUp className={`w-4 h-4 ${
                                     platformColor === 'orange' ? 'text-orange-500' :
@@ -281,7 +270,7 @@ export default function ProductDetailModal({
                                     platformColor === 'orange' ? 'text-orange-600' :
                                     platformColor === 'red' ? 'text-red-600' : 'text-pink-600'
                                   }`}>
-                                    {product?.popularityScore || 70}점
+                                    인기도 {product?.popularityScore || 70}점
                                   </span>
                                 </div>
                               </div>

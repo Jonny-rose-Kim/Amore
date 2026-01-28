@@ -15,11 +15,13 @@ import ReviewKeywordsPanel from './ReviewKeywordsPanel';
 import OverseasProductList, { OverseasProduct } from './OverseasProductList';
 import DomesticProductList, { DomesticProduct } from './DomesticProductList';
 import ProductComparison from './ProductComparison';
-import { fetchWhitespaceProducts, fetchCombinationLeaderboard, CombinationLeaderboardItem, fetchRAGInsight } from '../services/api';
+import { fetchWhitespaceProducts, fetchCombinationLeaderboard, CombinationLeaderboardItem, fetchRAGInsight, getInsights, exportInsightsPDF, exportInsightsWord, saveInsight } from '../services/api';
 import WhitespaceGapAnalysis from './WhitespaceGapAnalysis';
 import ChatBot from './ChatBot';
+import KbeautyNewProductTrends from './KbeautyNewProductTrends';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, Loader2, Sparkles } from 'lucide-react';
+import { ChevronDown, Loader2, Sparkles, X, Download, FileText, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { translateReview } from '../utils/koreanTranslations';
 
 type TabType = 'single' | 'combination';
 type MainCategory = 'Skincare' | 'Cleansing' | 'Sun Care' | 'Makeup' | 'Hair Care' | 'Body Care' | 'Mens Care' | 'Haircare' | 'Bodycare';
@@ -43,6 +45,22 @@ export default function TrendInsightDashboard() {
   
   // WhiteSpace 모드 관련 상태
   const [isWhiteSpaceMode, setIsWhiteSpaceMode] = useState(false);
+
+  // K-Beauty 동향 모드 상태
+  const [isKbeautyMode, setIsKbeautyMode] = useState(false);
+
+  // 인사이트 저장 모달 상태
+  const [isInsightModalOpen, setIsInsightModalOpen] = useState(false);
+  const [insightCount, setInsightCount] = useState(0);
+  const [isExporting, setIsExporting] = useState(false);
+
+  // 리뷰 키워드 팝업 상태 (대시보드 레벨)
+  const [reviewModalData, setReviewModalData] = useState<{
+    isOpen: boolean;
+    reviews: any[];
+    sentimentType: 'positive' | 'negative';
+    reviewType: string;
+  }>({ isOpen: false, reviews: [], sentimentType: 'positive', reviewType: '' });
   const [selectedCategory, setSelectedCategory] = useState<MainCategory | null>('Skincare');
   const [selectedOverseasProduct, setSelectedOverseasProduct] = useState<OverseasProduct | null>(null);
   const [selectedDomesticProduct, setSelectedDomesticProduct] = useState<DomesticProduct | null>(null);
@@ -231,6 +249,7 @@ export default function TrendInsightDashboard() {
         setReportResult({
           type,
           content: result.content,
+          agentInsight: result.agentInsight,  // 마케팅 타입: 종합 전략 요약
           sources: result.ragSources,
           scope,
           keyword: scope === 'keyword' ? keywordForInsight : undefined,
@@ -238,6 +257,15 @@ export default function TrendInsightDashboard() {
         });
         setIsGeneratingInsight(false);
         setIsReportModalOpen(true);
+
+        // 인사이트 자동 저장
+        const typeNames = { marketing: '마케팅 전략', npd: '신제품 개발', overseas: '해외 진출' };
+        saveInsight(
+          type,
+          `${typeNames[type]} - ${keywordForInsight || selectedCategory || 'Skincare'}`,
+          result.content,
+          { keyword: keywordForInsight, category: selectedCategory, country, scope }
+        );
       } else {
         // LLM 실패 시 mock 데이터 폴백
         const report = generateReport(type, selectedBubbleItem, country);
@@ -343,10 +371,27 @@ export default function TrendInsightDashboard() {
                 </p>
               </div>
             </div>
-            
-            {/* 국가 선택 드롭박스 */}
-            <div className="relative" ref={countryDropdownRef}>
-              <span className="text-sm text-slate-600 mr-2">국가 선택:</span>
+
+            {/* 인사이트 저장 버튼 + 국가 선택 드롭박스 */}
+            <div className="flex items-center gap-4">
+              {/* 인사이트 저장 버튼 */}
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={async () => {
+                  const result = await getInsights();
+                  setInsightCount(result.count);
+                  setIsInsightModalOpen(true);
+                }}
+                className="px-5 py-2.5 rounded-xl font-semibold transition-all flex items-center gap-2 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white shadow-lg shadow-violet-500/30"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>📥 인사이트 저장</span>
+              </motion.button>
+
+              {/* 국가 선택 드롭박스 */}
+              <div className="relative" ref={countryDropdownRef}>
+                <span className="text-sm text-slate-600 mr-2">국가 선택:</span>
               <div className="relative inline-block">
                 <button
                   onClick={() => setIsCountryDropdownOpen(!isCountryDropdownOpen)}
@@ -388,11 +433,12 @@ export default function TrendInsightDashboard() {
               </div>
             </div>
           </div>
+          </div>
         </motion.div>
-        
+
         <div className="flex-1 flex gap-4 overflow-hidden min-h-0">
-          {/* 좌측 패널: 트렌드 발견 (70%) */}
-          <div className="flex-1 flex flex-col min-w-0" style={{ width: '70%' }}>
+          {/* 좌측 패널: 트렌드 발견 (70% / WhiteSpace,K-Beauty 모드에서는 100%) */}
+          <div className="flex-1 flex flex-col min-w-0" style={{ width: (isWhiteSpaceMode || isKbeautyMode) ? '100%' : '70%' }}>
             <div className="flex-1 backdrop-blur-sm rounded-xl p-4 shadow-xl flex flex-col overflow-y-auto transition-all duration-500 bg-white/80 border border-slate-200">
               {/* 탭 전환 */}
               <div className="flex gap-3 mb-4 flex-shrink-0">
@@ -403,9 +449,10 @@ export default function TrendInsightDashboard() {
                     setSelectedInsight(null);
                     setSelectedTrendMetrics(null);
                     setIsWhiteSpaceMode(false);
+                    setIsKbeautyMode(false);
                   }}
                   className={`px-6 py-2.5 rounded-xl font-bold transition-all text-sm flex items-center gap-2 ${
-                    activeTab === 'single' && !isWhiteSpaceMode
+                    activeTab === 'single' && !isWhiteSpaceMode && !isKbeautyMode
                       ? `bg-gradient-to-r from-violet-500 to-purple-600 text-white shadow-lg shadow-violet-500/30 scale-105`
                       : 'bg-white text-slate-600 hover:bg-violet-50 hover:text-violet-700 border-2 border-slate-200 hover:border-violet-300'
                   }`}
@@ -419,9 +466,10 @@ export default function TrendInsightDashboard() {
                     setSelectedInsight(null);
                     setSelectedTrendMetrics(null);
                     setIsWhiteSpaceMode(false);
+                    setIsKbeautyMode(false);
                   }}
                   className={`px-6 py-2.5 rounded-xl font-bold transition-all text-sm flex items-center gap-2 ${
-                    activeTab === 'combination' && !isWhiteSpaceMode
+                    activeTab === 'combination' && !isWhiteSpaceMode && !isKbeautyMode
                       ? `bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/30 scale-105`
                       : 'bg-white text-slate-600 hover:bg-amber-50 hover:text-amber-700 border-2 border-slate-200 hover:border-amber-300'
                   }`}
@@ -431,6 +479,7 @@ export default function TrendInsightDashboard() {
                 <button
                   onClick={() => {
                     setIsWhiteSpaceMode(true);
+                    setIsKbeautyMode(false);
                     setSelectedOverseasProduct(null);
                     setSelectedDomesticProduct(null);
                     setExpandedIndex(null);
@@ -445,11 +494,35 @@ export default function TrendInsightDashboard() {
                 >
                   <span className="text-base">🎯</span> WhiteSpace 비교
                 </button>
+                <button
+                  onClick={() => {
+                    setIsKbeautyMode(true);
+                    setIsWhiteSpaceMode(false);
+                    setExpandedIndex(null);
+                    setSelectedInsight(null);
+                    setSelectedTrendMetrics(null);
+                  }}
+                  className={`px-6 py-2.5 rounded-xl font-bold transition-all text-sm flex items-center gap-2 ${
+                    isKbeautyMode
+                      ? `bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-lg shadow-rose-500/30 scale-105`
+                      : 'bg-white text-slate-600 hover:bg-rose-50 hover:text-rose-700 border-2 border-slate-200 hover:border-rose-300'
+                  }`}
+                >
+                  <span className="text-base">🌸</span> K-Beauty 최신 동향
+                </button>
               </div>
 
 
               {/* 메인 콘텐츠 영역 */}
-              {isWhiteSpaceMode ? (
+              {isKbeautyMode ? (
+                /* K-Beauty 동향 모드 */
+                <div className="flex-1 overflow-y-auto">
+                  <KbeautyNewProductTrends
+                    category={selectedCategory || 'Skincare'}
+                    onClose={() => setIsKbeautyMode(false)}
+                  />
+                </div>
+              ) : isWhiteSpaceMode ? (
                 <>
                 {/* WhiteSpace 모드에서만 카테고리 버튼 표시 */}
                 <div className="mb-4 flex-shrink-0">
@@ -580,16 +653,6 @@ export default function TrendInsightDashboard() {
                     <>
                       <div className="flex items-center gap-2 mb-3 flex-shrink-0">
                         <h2 className="text-lg font-semibold text-slate-800">꿀조합 리더보드</h2>
-                        <InfoTooltip
-                          title="꿀조합 가이드"
-                          description="여러 성분, 제형, 기능이 조합된 트렌드를 보여줍니다. 각 조합이 왜 효과적인지 SNS, 리테일, 리뷰 데이터로 검증된 트렌드입니다."
-                          usage="기획팀: 신제품 개발 시 참고 / 마케팅팀: 캠페인 메시지 개발 / R&D: 성분 조합 연구"
-                          terms={[
-                            { term: '🌱 Early Trend', meaning: 'SNS 중심으로 초기 관심 신호가 관찰되는 단계 (구매·리뷰 데이터는 제한적)' },
-                            { term: '🚀 Growing Trend', meaning: 'SNS 관심 증가와 함께 구매 지표가 동반 상승하는 단계 (Action 가능성 검토 구간)' },
-                            { term: '🔥 Actionable Trend', meaning: '관심·구매·리뷰 지표가 모두 정합성을 보이며 실무 의사결정에 즉시 활용 가능한 단계' },
-                          ]}
-                        />
                       </div>
                       {/* 대분류 카테고리 선택 */}
                       <div className="mb-3 flex-shrink-0">
@@ -728,6 +791,9 @@ export default function TrendInsightDashboard() {
                     isCombination={!!selectedTrendItem}
                     country={country}
                     componentKeywords={combinationComponentKeywords}
+                    onOpenReviewModal={(reviews, sentimentType, reviewType) => {
+                      setReviewModalData({ isOpen: true, reviews, sentimentType, reviewType });
+                    }}
                   />
                 </div>
 
@@ -751,8 +817,8 @@ export default function TrendInsightDashboard() {
             </div>
           </div>
 
-          {/* 우측 패널: AI 근거 (30%) - WhiteSpace 모드가 아닐 때만 표시 */}
-          {!isWhiteSpaceMode && (
+          {/* 우측 패널: AI 근거 (30%) - WhiteSpace/K-Beauty 모드가 아닐 때만 표시 */}
+          {!isWhiteSpaceMode && !isKbeautyMode && (
             <div className="flex-shrink-0 flex flex-col min-w-0" style={{ width: '30%' }}>
               <InsightPanel
                 selectedInsight={selectedInsight}
@@ -834,6 +900,241 @@ export default function TrendInsightDashboard() {
 
       {/* AI 챗봇 */}
       <ChatBot />
+
+      {/* 인사이트 저장 모달 */}
+      <AnimatePresence>
+        {isInsightModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+            onClick={() => setIsInsightModalOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-emerald-500" />
+                  인사이트 저장
+                </h3>
+                <button
+                  onClick={() => setIsInsightModalOpen(false)}
+                  className="p-1 rounded-full hover:bg-slate-100 transition-colors"
+                >
+                  <X className="w-5 h-5 text-slate-500" />
+                </button>
+              </div>
+
+              <div className="mb-6">
+                <p className="text-slate-600 text-sm mb-2">
+                  현재 세션에서 생성된 AI 인사이트를 파일로 저장합니다.
+                </p>
+                <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                  <p className="text-sm text-slate-700">
+                    저장된 인사이트: <span className="font-bold text-emerald-600">{insightCount}개</span>
+                  </p>
+                </div>
+              </div>
+
+              {insightCount === 0 ? (
+                <div className="text-center py-4">
+                  <p className="text-slate-500 text-sm">
+                    아직 저장된 인사이트가 없습니다.<br />
+                    AI 분석을 실행하면 인사이트가 자동으로 수집됩니다.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-slate-700 mb-2">저장 형식 선택:</p>
+                  <button
+                    onClick={async () => {
+                      setIsExporting(true);
+                      try {
+                        const blob = await exportInsightsPDF();
+                        if (blob) {
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `amore_insights_${new Date().toISOString().split('T')[0]}.pdf`;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(url);
+                          setIsInsightModalOpen(false);
+                        }
+                      } catch (err) {
+                        console.error('PDF export failed:', err);
+                      } finally {
+                        setIsExporting(false);
+                      }
+                    }}
+                    disabled={isExporting}
+                    className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-red-500 to-rose-500 text-white font-medium flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
+                  >
+                    {isExporting ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <>
+                        <FileText className="w-5 h-5" />
+                        PDF로 저장
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setIsExporting(true);
+                      try {
+                        const blob = await exportInsightsWord();
+                        if (blob) {
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `amore_insights_${new Date().toISOString().split('T')[0]}.docx`;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(url);
+                          setIsInsightModalOpen(false);
+                        }
+                      } catch (err) {
+                        console.error('Word export failed:', err);
+                      } finally {
+                        setIsExporting(false);
+                      }
+                    }}
+                    disabled={isExporting}
+                    className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-medium flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
+                  >
+                    {isExporting ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <>
+                        <FileText className="w-5 h-5" />
+                        Word로 저장
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 리뷰 키워드 팝업 - 대시보드 레벨 */}
+      <AnimatePresence>
+        {reviewModalData.isOpen && reviewModalData.reviews.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6"
+            onClick={() => setReviewModalData({ ...reviewModalData, isOpen: false })}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className={`bg-white rounded-3xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col border-2 ${
+                reviewModalData.sentimentType === 'positive' ? 'border-emerald-300' : 'border-rose-300'
+              }`}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* 헤더 */}
+              <div className={`flex items-center justify-between p-6 border-b ${
+                reviewModalData.sentimentType === 'positive'
+                  ? 'border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50'
+                  : 'border-rose-200 bg-gradient-to-r from-rose-50 to-pink-50'
+              } rounded-t-3xl`}>
+                <div className="flex items-center gap-4">
+                  <div className={`w-14 h-14 rounded-xl flex items-center justify-center ${
+                    reviewModalData.sentimentType === 'positive'
+                      ? 'bg-emerald-500 shadow-lg shadow-emerald-500/30'
+                      : 'bg-rose-500 shadow-lg shadow-rose-500/30'
+                  }`}>
+                    {reviewModalData.sentimentType === 'positive' ? (
+                      <ThumbsUp className="w-7 h-7 text-white" />
+                    ) : (
+                      <ThumbsDown className="w-7 h-7 text-white" />
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-2xl">
+                      {reviewModalData.sentimentType === 'positive' ? '긍정' : '부정'} 리뷰 분석
+                    </h4>
+                    <p className="text-slate-500">
+                      "{reviewModalData.reviewType}" 키워드 관련 · 총 {reviewModalData.reviews.length}건의 리뷰
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setReviewModalData({ ...reviewModalData, isOpen: false })}
+                  className="w-12 h-12 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
+                >
+                  <X className="w-6 h-6 text-slate-600" />
+                </button>
+              </div>
+
+              {/* 리뷰 목록 */}
+              <div className="flex-1 overflow-y-auto p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {reviewModalData.reviews.map((review: any, idx: number) => {
+                    const korTranslation = review.contentKr || translateReview(review.content);
+                    return (
+                      <motion.div
+                        key={idx}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: idx * 0.03 }}
+                        className={`p-5 rounded-2xl border-2 ${
+                          reviewModalData.sentimentType === 'positive'
+                            ? 'bg-gradient-to-br from-emerald-50 to-teal-50/50 border-emerald-200 hover:border-emerald-300'
+                            : 'bg-gradient-to-br from-rose-50 to-pink-50/50 border-rose-200 hover:border-rose-300'
+                        } transition-all hover:shadow-lg`}
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="font-bold text-slate-800 truncate flex-1">{review.product}</span>
+                          <span className={`text-xs px-3 py-1 rounded-full font-medium ml-2 ${
+                            reviewModalData.sentimentType === 'positive'
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-rose-100 text-rose-700'
+                          }`}>
+                            ⭐ {review.rating?.toFixed(1)}
+                          </span>
+                        </div>
+                        <p className="text-slate-800 leading-relaxed mb-3 line-clamp-3">"{review.content}"</p>
+                        {korTranslation && (
+                          <div className={`p-3 rounded-xl mb-3 ${
+                            reviewModalData.sentimentType === 'positive'
+                              ? 'bg-emerald-100/50 border-l-4 border-emerald-400'
+                              : 'bg-rose-100/50 border-l-4 border-rose-400'
+                          }`}>
+                            <p className="text-slate-700 text-sm leading-relaxed italic line-clamp-3">
+                              🇰🇷 {korTranslation}
+                            </p>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-slate-600 font-medium">{review.brand}</span>
+                          <span className="text-slate-400 text-xs">
+                            {review.source} · {new Date(review.postedAt).toLocaleDateString('ko-KR')}
+                          </span>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
