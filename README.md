@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="image/amore_clue.png" alt="AMORE CLUE" width="280"/>
+  <img src="public/images/amore_clue.png" alt="AMORE CLUE" width="200"/>
 </p>
 
 <h1 align="center">AMORE CLUE</h1>
@@ -10,591 +10,543 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/LangGraph-Multi_Agent-blue?style=flat-square" alt="LangGraph"/>
-  <img src="https://img.shields.io/badge/RAG-Advanced-green?style=flat-square" alt="RAG"/>
-  <img src="https://img.shields.io/badge/GPU-4x_Parallel-orange?style=flat-square" alt="GPU"/>
-  <img src="https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react" alt="React"/>
-  <img src="https://img.shields.io/badge/TypeScript-5.2-3178C6?style=flat-square&logo=typescript" alt="TypeScript"/>
+  <img src="https://img.shields.io/badge/React-18.x-61DAFB?style=flat-square&logo=react" alt="React"/>
+  <img src="https://img.shields.io/badge/TypeScript-5.x-3178C6?style=flat-square&logo=typescript" alt="TypeScript"/>
+  <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python" alt="Python"/>
+  <img src="https://img.shields.io/badge/EXAONE-3.5_7.8B-FF6B35?style=flat-square" alt="EXAONE"/>
+  <img src="https://img.shields.io/badge/GPU-4x_A6000-76B900?style=flat-square&logo=nvidia" alt="GPU"/>
+  <img src="https://img.shields.io/badge/MongoDB-Atlas-47A248?style=flat-square&logo=mongodb" alt="MongoDB"/>
+  <img src="https://img.shields.io/badge/Firebase-Hosting-FFCA28?style=flat-square&logo=firebase" alt="Firebase"/>
 </p>
 
 ---
 
-## 🎯 System Architecture Overview
+## 📋 Table of Contents
 
-<p align="center">
-  <strong>Two-Track Multi-Agent AI System with Advanced RAG Pipeline</strong>
-</p>
-
-```mermaid
-flowchart TB
-    subgraph INPUT["🌐 Data Sources"]
-        direction LR
-        RETAIL[("🛒 Retail\n(Amazon, Olive Young)")]
-        SNS[("📱 SNS\n(TikTok, Instagram)")]
-        REVIEW[("⭐ Reviews\n(User Feedback)")]
-    end
-
-    subgraph TRACK1["📊 Track 1: Automated Data Pipeline (Daily Batch)"]
-        direction LR
-        CRAWL["🕷️ Multi-Source\nCrawler"]
-        EXTRACT["🔍 LLM Keyword\nExtractor\n(EXAONE)"]
-        CLASSIFY["📈 Multi-Signal\nTrend Classifier"]
-
-        CRAWL -->|Raw Data| EXTRACT
-        EXTRACT -->|Structured| CLASSIFY
-    end
-
-    subgraph STORAGE["💾 Data Storage Layer"]
-        direction LR
-        MONGO[("🍃 MongoDB\n(Structured Data)")]
-        VECTOR[("🔮 Vector DB\n(RAG Embeddings)")]
-        CACHE[("⚡ Cache\n(Session/Memory)")]
-    end
-
-    subgraph TRACK2["🤖 Track 2: Real-time AI Analysis Engine"]
-        direction TB
-
-        subgraph ROUTER["🎛️ Intelligent Router"]
-            QUERY["User Query"] --> ADAPTIVE{"Adaptive\nRouter"}
-        end
-
-        subgraph AGENTS["🧠 Specialized AI Agents (Multi-GPU)"]
-            direction LR
-            subgraph GPU5["GPU:5 (Port 5005)"]
-                A1["📝 Review Summary\n+ Parent-Doc RAG"]
-                A2["📊 SNS Analysis\n+ Self-RAG"]
-                A3["❓ Keyword Why\n+ Multi-Query RAG"]
-            end
-            subgraph GPU6["GPU:6 (Port 5006)"]
-                A4["🎯 Category Strategy\n+ HyDE RAG"]
-                A5["🔲 Whitespace\n+ Agentic RAG"]
-            end
-            subgraph GPU7["GPU:7 (Port 5007)"]
-                A6["💬 AI Chatbot\n+ Memory RAG"]
-                A7["🔮 RAG Insight\n+ CRAG"]
-                A8["📈 Trend Prediction\n+ Self-RAG"]
-            end
-        end
-
-        subgraph REFLECTION["🔄 Quality Assurance"]
-            REFLECT{"Self-Reflection\n& Validation"}
-            REGEN["Re-generate\nif needed"]
-        end
-
-        ADAPTIVE -->|Route| GPU5 & GPU6 & GPU7
-        GPU5 & GPU6 & GPU7 --> REFLECT
-        REFLECT -->|"❌ Fail"| REGEN --> ADAPTIVE
-        REFLECT -->|"✅ Pass"| OUTPUT
-    end
-
-    subgraph OUTPUT["📤 Output"]
-        RESPONSE["🎁 AI-Powered\nInsights & Strategy"]
-    end
-
-    INPUT --> TRACK1
-    TRACK1 --> STORAGE
-    STORAGE <--> TRACK2
-    TRACK2 --> OUTPUT
-
-    style TRACK1 fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
-    style TRACK2 fill:#fce4ec,stroke:#c2185b,stroke-width:2px
-    style STORAGE fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
-    style INPUT fill:#fff3e0,stroke:#f57c00,stroke-width:2px
-    style OUTPUT fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
-```
-
-### 🔬 RAG Technology Mapping
-
-| Track | Feature | RAG Technique | Description |
-|:-----:|---------|:-------------:|-------------|
-| **Track 1** | Data Extraction | **LLM-based NER** | 제품명, 성분, 효능 키워드 자동 추출 |
-| **Track 1** | Trend Classification | **Multi-Signal Fusion** | SNS + Retail + Review 신호 통합 분류 |
-| **Track 2** | Review Summary | **Parent-Document RAG** | 개별 리뷰 검색 → 전체 문서 컨텍스트 활용 |
-| **Track 2** | SNS Analysis | **Self-RAG** | 생성 결과 자체 평가 및 재생성 |
-| **Track 2** | Keyword Why | **Multi-Query RAG** | 쿼리를 4방향 분해 후 RRF 통합 |
-| **Track 2** | Category Strategy | **HyDE** | 가상 문서 생성 → 유사 전략 검색 |
-| **Track 2** | Whitespace | **Agentic RAG** | 다단계 추론 기반 시장 기회 탐색 |
-| **Track 2** | RAG Insight | **CRAG** | 검색 품질 평가 → 외부 소스 보정 |
-| **Track 2** | AI Chatbot | **Memory RAG** | 대화 이력 기반 컨텍스트 유지 |
-| **Track 2** | Trend Prediction | **Adaptive RAG** | 쿼리 복잡도 기반 전략 동적 선택 |
+- [Overview](#-overview)
+- [Key Features](#-key-features)
+- [System Architecture](#-system-architecture)
+- [Two-Track AI Pipeline](#-two-track-ai-pipeline)
+- [Multi-GPU LLM Deployment](#-multi-gpu-llm-deployment)
+- [Agent Flow](#-agent-flow)
+- [Project Structure](#-project-structure)
+- [Tech Stack](#-tech-stack)
+- [Installation & Setup](#-installation--setup)
+- [API Endpoints](#-api-endpoints)
 
 ---
 
-## Overview
+## 🎯 Overview
 
-AMORE CLUE는 글로벌 뷰티 시장의 트렌드를 **수집 - 분석 - 예측**하는 Two-Track Multi-Agent AI 시스템입니다.
+**AMORE CLUE**는 글로벌 화장품 시장의 트렌드를 실시간으로 분석하고, AI 기반 인사이트를 제공하는 종합 대시보드 플랫폼입니다.
 
-**Track 1**은 매일 자동으로 데이터를 크롤링하고 트렌드를 분류하며, **Track 2**는 LangGraph 기반 AI Agent들이 실시간으로 인사이트를 생성합니다.
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        AMORE CLUE System                            │
-├────────────────────────────┬────────────────────────────────────────┤
-│    Track 1: Data Pipeline  │     Track 2: AI Analysis Engine        │
-│    (Daily Batch Agent)     │     (Real-time LangGraph Agents)       │
-│                            │                                        │
-│  Crawling → Extraction     │   Query → Routing → RAG → Generation  │
-│  → Classification → DB    │   → Reflection → Response              │
-└────────────────────────────┴────────────────────────────────────────┘
-```
+SNS, 리테일, 리뷰 데이터를 수집하여 성분, 제형, 효능 트렌드를 분석하고, Multi-Agent LLM 시스템을 통해 심층적인 시장 인사이트를 생성합니다.
 
 ---
 
-## Architecture
+## ✨ Key Features
 
-### Two-Track Agent Flow
-
-```mermaid
-graph TB
-    subgraph "Track 1: Data Pipeline Agent"
-        C[Scheduled Crawler] --> E[Data Extractor Agent]
-        E --> T[Trend Classifier Agent]
-        T --> DB[(MongoDB)]
-    end
-
-    subgraph "Track 2: AI Analysis Agent"
-        Q[User Query] --> R[LangGraph Router]
-        R --> RAG[RAG Engine]
-        R --> LLM[LLM Agents]
-        RAG --> VDB[(ChromaDB)]
-        RAG --> LLM
-        LLM --> REF[Self-Reflection]
-        REF --> RES[Response]
-    end
-
-    DB --> RAG
-    DB --> LLM
-```
+| Feature | Description |
+|---------|-------------|
+| 🌍 **글로벌 트렌드 분석** | 미국, 일본, 프랑스, 태국 등 주요 시장 분석 |
+| 📊 **키워드 리더보드** | 성분/제형/효능별 트렌드 순위 시각화 |
+| 🤖 **AI 키워드 분석** | LLM 기반 키워드 상승 원인 및 전략 분석 |
+| 📈 **PLC 예측** | 제품 수명 주기 6-12개월 예측 |
+| 💬 **리뷰 AI 요약** | 긍정/부정 리뷰 자동 분류 및 요약 |
+| 🔥 **SNS/Retail 분석** | 플랫폼별 인기 키워드 AI 분석 |
+| 🆚 **제품 비교** | 해외 vs 국내 제품 AI 비교 분석 |
+| 📝 **리포트 생성** | 마케팅/NPD/해외진출 리포트 자동 생성 |
+| 💾 **인사이트 저장** | 분석 결과 Word 문서 내보내기 |
+| 🗣️ **AI 챗봇** | RAG 기반 대화형 인사이트 |
 
 ---
 
-## Track 1: Data Pipeline Agent Flow
-
-하루 단위로 실행되는 자동화된 데이터 수집 및 트렌드 분류 파이프라인입니다.
-
-### Pipeline Stages
-
-```mermaid
-graph LR
-    A[Multi-Source\nCrawler] -->|Raw Data| B[LLM Keyword\nExtractor]
-    B -->|Structured| C[Multi-Signal\nTrend Classifier]
-    C -->|Classified| D[MongoDB\nDB Builder]
-
-    style A fill:#e1f5fe
-    style B fill:#f3e5f5
-    style C fill:#fff3e0
-    style D fill:#e8f5e9
-```
-
-| Stage | Agent | Input | Output | DB Collection |
-|-------|-------|-------|--------|---------------|
-| 1. Crawling | `Scheduler Agent` | Target URLs (Retail, SNS, Review) | Raw HTML/JSON | `raw_retail_sales`, `raw_reviews`, `raw_sns_posts` |
-| 2. Extraction | `Keyword Extractor` | Product descriptions | Ingredient, Formula, Effect, Mood | `keyword_extractions` |
-| 3. Classification | `Trend Classifier` | Multi-signal scores | Early / Growing / Actionable | `trend_classifications` |
-| 4. DB Build | `Aggregation Agent` | Classified trends | Leaderboard, Combinations | `leaderboard`, `combinations` |
-
-### Trend Classification Logic
-
-다요소 점수 기반 하이브리드 분류 시스템:
-
-```
-Signal Sources (3):
-├── SNS: Instagram, TikTok, YouTube mention volume & growth
-├── Retail: Amazon, Olive Young sales rank & velocity
-└── Review: Rating, sentiment, keyword frequency
-
-Classification Thresholds:
-├── Early Trend:      Growth ≥ 30% | Persistence ≥ 2weeks | Signal Consistency ≥ 0.3
-├── Growing Trend:    Growth ≥ 10% | Persistence ≥ 4weeks | Signal Consistency ≥ 0.6
-└── Actionable Trend: Growth ≥ 5%  | Persistence ≥ 6weeks | Signal Consistency ≥ 0.8
-```
-
-### Data Sources & Collections
-
-```
-MongoDB (Structured Data)
-├── raw_retail_sales      : 리테일 판매 순위 원본 데이터
-├── raw_reviews           : 제품 리뷰 원본 데이터
-├── raw_sns_posts         : SNS 언급량 원본 데이터
-├── keyword_extractions   : LLM 추출 키워드 (성분/제형/효과/무드)
-├── trend_classifications : 트렌드 분류 결과
-├── leaderboard           : 국가별/카테고리별 리더보드
-├── combinations          : 성분+제형 조합 분석 결과
-├── sns_platform_stats    : 플랫폼별 SNS 통계
-└── batch_job_logs        : 배치 작업 이력
-```
-
----
-
-## Track 2: AI Analysis Agent Flow
-
-LangGraph 기반 Multi-Agent 시스템이 실시간으로 사용자 쿼리를 분석하고, 최신 RAG 기술을 적용하여 인사이트를 생성합니다.
-
-### LangGraph Agent Orchestration
-
-```mermaid
-graph TB
-    subgraph "LangGraph State Machine"
-        START((Start)) --> ROUTER{Adaptive\nRouter}
-
-        ROUTER -->|"Trend Query"| CRAG[CRAG Agent]
-        ROUTER -->|"Product Analysis"| SELFRAG[Self-RAG Agent]
-        ROUTER -->|"Strategy"| HYDE[HyDE Agent]
-        ROUTER -->|"Prediction"| MQ[Multi-Query Agent]
-        ROUTER -->|"Visual"| VLM[VLM Agent]
-
-        CRAG --> REFLECT{Self-Reflection}
-        SELFRAG --> REFLECT
-        HYDE --> REFLECT
-        MQ --> REFLECT
-
-        REFLECT -->|"Pass"| GENERATE[Response Generator]
-        REFLECT -->|"Fail"| ROUTER
-
-        VLM --> GENERATE
-        GENERATE --> END((End))
-    end
-```
-
-### GPU Distribution & Features
-
-3개 GPU에 분산 배치된 AI Agent들 (EXAONE-3.5-7.8B-Instruct):
+## 🏗 System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                         GPU Cluster (3x A6000 GPUs)                         │
-├─────────────────────────┬─────────────────────────┬─────────────────────────┤
-│   GPU 5 (Port 5005)     │   GPU 6 (Port 5006)     │   GPU 7 (Port 5007)     │
-│   EXAONE-3.5-7.8B       │   EXAONE-3.5-7.8B       │   EXAONE-3.5-7.8B       │
-│   ~17GB VRAM            │   ~17GB VRAM            │   ~17GB VRAM            │
-├─────────────────────────┼─────────────────────────┼─────────────────────────┤
-│ • SNS Analysis          │ • Category Strategy     │ • AI Chatbot (RAG)      │
-│   + Self-RAG            │   + HyDE RAG            │   + Memory RAG          │
-│ • Whitespace Product    │ • Whitespace Category   │ • Review Summary        │
-│   + Agentic RAG         │   + Multi-Query RAG     │   + Parent-Doc RAG      │
-│ • Keyword Why           │                         │ • RAG Insight           │
-│   + Multi-Query RAG     │                         │   + CRAG                │
-│                         │                         │ • Category Trend        │
-│                         │                         │ • PLC Prediction        │
-└─────────────────────────┴─────────────────────────┴─────────────────────────┘
+│                              AMORE CLUE System                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                         Frontend (React + TypeScript)                │   │
+│  │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐   │   │
+│  │  │ Dashboard   │ │ Leaderboard │ │ AI Analysis │ │   ChatBot   │   │   │
+│  │  │ Components  │ │  Components │ │  Components │ │  Component  │   │   │
+│  │  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘   │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                    │                                        │
+│                                    ▼                                        │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                    Backend API Server (Node.js)                      │   │
+│  │                         Port 5000 + 5002                             │   │
+│  │  ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐           │   │
+│  │  │  /api/    │ │ /api/llm  │ │ /api/chat │ │/api/insight│           │   │
+│  │  │  trends   │ │  proxy    │ │   proxy   │ │   save    │           │   │
+│  │  └───────────┘ └───────────┘ └───────────┘ └───────────┘           │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                    │                                        │
+│                    ┌───────────────┼───────────────┐                       │
+│                    ▼               ▼               ▼                       │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │              Multi-GPU LLM Servers (EXAONE-3.5-7.8B)                  │  │
+│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐                 │  │
+│  │  │ GPU 4   │  │ GPU 5   │  │ GPU 6   │  │ GPU 7   │                 │  │
+│  │  │Port 5004│  │Port 5005│  │Port 5006│  │Port 5007│                 │  │
+│  │  │Keyword  │  │SNS/WS   │  │Review   │  │RAG/Chat │                 │  │
+│  │  │Category │  │Analysis │  │Strategy │  │Report   │                 │  │
+│  │  └─────────┘  └─────────┘  └─────────┘  └─────────┘                 │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                    │                                        │
+│                                    ▼                                        │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │                    Database Layer (MongoDB Atlas)                     │  │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                  │  │
+│  │  │   Trends    │  │   Reviews   │  │  Products   │                  │  │
+│  │  │   Data      │  │    Data     │  │    Data     │                  │  │
+│  │  └─────────────┘  └─────────────┘  └─────────────┘                  │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Advanced RAG Techniques
+---
 
-각 기능에 최적화된 최신 RAG 기술을 적용합니다:
+## 🔀 Two-Track AI Pipeline
 
-#### 1. Adaptive RAG (Router-based)
-
-쿼리 복잡도에 따라 최적의 검색 전략을 동적으로 선택합니다.
-
-```mermaid
-graph LR
-    Q[Query] --> CL{Complexity\nClassifier}
-    CL -->|Simple| DS[Direct Search]
-    CL -->|Moderate| MR[Multi-step Retrieval]
-    CL -->|Complex| AG[Agentic RAG]
-
-    DS --> G[Generate]
-    MR --> G
-    AG --> G
-```
-
-| 적용 기능 | 전략 | 설명 |
-|-----------|------|------|
-| Review Summary | Direct Search | 리뷰 데이터 직접 검색 후 요약 |
-| Keyword Why | Multi-step | 키워드 → 관련 트렌드 → 원인 분석 |
-| Country Strategy | Agentic | 다국가 데이터 비교 분석 후 전략 도출 |
-
-#### 2. Corrective RAG (CRAG)
-
-검색된 문서의 관련성을 평가하고, 부적절할 경우 웹 검색으로 보정합니다.
+AMORE CLUE는 **Two-Track Multi-Agent 시스템**을 통해 효율적인 AI 분석을 수행합니다.
 
 ```
-┌─────────┐     ┌──────────┐     ┌────────────┐
-│ Retrieve │ ──▶ │ Evaluate │ ──▶ │  Relevant? │
-└─────────┘     └──────────┘     └────────────┘
-                                    │Yes    │No
-                                    ▼       ▼
-                              ┌────────┐ ┌──────────┐
-                              │Generate│ │Web Search│
-                              └────────┘ │+ Refine  │
-                                         └──────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        TWO-TRACK AI PIPELINE                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   ┌─────────────────────────────────────────────────────────────────────┐  │
+│   │                     TRACK 1: Real-time Analysis                      │  │
+│   │                     (즉시 응답이 필요한 분석)                          │  │
+│   └─────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│   User Request ──▶ ┌─────────────────────────────────────────────────────┐ │
+│                    │                                                     │ │
+│   ┌────────────┐   │  ┌──────────┐   ┌──────────┐   ┌──────────┐       │ │
+│   │  Keyword   │──▶│  │  Query   │──▶│   LLM    │──▶│ Response │       │ │
+│   │  Analysis  │   │  │ Builder  │   │ Inference│   │  Parser  │       │ │
+│   └────────────┘   │  └──────────┘   └──────────┘   └──────────┘       │ │
+│                    │        │              │              │             │ │
+│   ┌────────────┐   │        ▼              ▼              ▼             │ │
+│   │  Category  │──▶│  Context + Prompt ──▶ GPU ──▶ Structured Output   │ │
+│   │  Analysis  │   │                                                     │ │
+│   └────────────┘   │                                                     │ │
+│                    │                                                     │ │
+│   ┌────────────┐   │  Load Balancing across GPU 4, 5, 6                 │ │
+│   │   Review   │──▶│                                                     │ │
+│   │   Summary  │   └─────────────────────────────────────────────────────┘ │
+│   └────────────┘                                                           │
+│                                                                             │
+│   ═══════════════════════════════════════════════════════════════════════  │
+│                                                                             │
+│   ┌─────────────────────────────────────────────────────────────────────┐  │
+│   │                      TRACK 2: Deep Analysis                          │  │
+│   │                   (심층 분석 및 리포트 생성)                            │  │
+│   └─────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│   User Request ──▶ ┌─────────────────────────────────────────────────────┐ │
+│                    │                                                     │ │
+│   ┌────────────┐   │  ┌──────────┐   ┌──────────┐   ┌──────────┐       │ │
+│   │   Report   │──▶│  │  RAG     │──▶│ Multi-   │──▶│  Agent   │       │ │
+│   │ Generation │   │  │ Retrieval│   │  Query   │   │ Insight  │       │ │
+│   └────────────┘   │  └──────────┘   └──────────┘   └──────────┘       │ │
+│                    │        │              │              │             │ │
+│   ┌────────────┐   │        ▼              ▼              ▼             │ │
+│   │    RAG     │──▶│  Vector DB ──▶ 3-Step Query ──▶ Final Report     │ │
+│   │   Chatbot  │   │                                                     │ │
+│   └────────────┘   │  Query 1: 시장 현황 분석                            │ │
+│                    │  Query 2: 성공 사례 분석                            │ │
+│   ┌────────────┐   │  Query 3: Agent Insight 생성                       │ │
+│   │    PLC     │──▶│                                                     │ │
+│   │ Prediction │   │  Dedicated GPU 7 for Deep Analysis                 │ │
+│   └────────────┘   └─────────────────────────────────────────────────────┘ │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-| 적용 기능 | Data Source | Fallback |
-|-----------|------------|----------|
-| Category Trend | `trend_classifications` + ChromaDB | SNS 실시간 데이터 보정 |
-| RAG Insight | `combinations` + Vector DB | 외부 뷰티 트렌드 리포트 |
+### Track 1: Real-time Analysis (실시간 분석)
+| 항목 | 내용 |
+|------|------|
+| **목적** | 빠른 응답이 필요한 단순 분석 |
+| **처리 시간** | 3-10초 |
+| **GPU 분산** | GPU 4, 5, 6에 부하 분산 |
+| **기능** | 키워드 분석, 카테고리 분석, 리뷰 요약, SNS 분석 |
 
-#### 3. Self-RAG (Self-Reflective)
+### Track 2: Deep Analysis (심층 분석)
+| 항목 | 내용 |
+|------|------|
+| **목적** | 복잡한 다단계 분석 및 리포트 생성 |
+| **처리 시간** | 30-60초 |
+| **전용 GPU** | GPU 7 (VLM 포함) |
+| **기능** | RAG 기반 리포트, PLC 예측, 멀티모달 챗봇 |
 
-생성된 응답의 품질을 스스로 평가하고, 기준 미달 시 재생성합니다.
+---
 
-```mermaid
-graph TB
-    R[Retrieve] --> G1[Generate]
-    G1 --> CR{Critique\nTokens}
-    CR -->|"IsRel: Yes\nIsSup: Yes\nIsUse: Yes"| OUT[Final Output]
-    CR -->|"Any: No"| R
-```
-
-| 적용 기능 | 평가 기준 | Reflection 조건 |
-|-----------|----------|----------------|
-| SNS Analysis | Factual grounding | 데이터 수치와 불일치 시 재생성 |
-| PLC Prediction | Logical consistency | 시계열 논리 오류 시 재생성 |
-| Whitespace Product | Market feasibility | 비현실적 제안 시 재생성 |
-
-#### 4. HyDE (Hypothetical Document Embeddings)
-
-쿼리로부터 가상 문서를 생성한 뒤, 해당 임베딩으로 유사 문서를 검색합니다.
+## 🖥 Multi-GPU LLM Deployment
 
 ```
-Query: "2024년 미백 트렌드 성분은?"
-         │
-         ▼
-┌─────────────────────────────┐
-│ LLM generates hypothetical  │
-│ document about whitening     │
-│ trend ingredients 2024...    │
-└─────────────────────────────┘
-         │ embed
-         ▼
-┌─────────────────────────────┐
-│ Vector Search with HyDE      │
-│ embedding → Better recall    │
-└─────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     MULTI-GPU LLM SERVER ARCHITECTURE                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                    NVIDIA A6000 GPU Cluster (8 GPUs x 49GB)          │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐│
+│  │    GPU 4      │  │    GPU 5      │  │    GPU 6      │  │    GPU 7      ││
+│  │   (49GB)      │  │   (49GB)      │  │   (49GB)      │  │   (49GB)      ││
+│  ├───────────────┤  ├───────────────┤  ├───────────────┤  ├───────────────┤│
+│  │ Port: 5004    │  │ Port: 5005    │  │ Port: 5006    │  │ Port: 5007    ││
+│  ├───────────────┤  ├───────────────┤  ├───────────────┤  ├───────────────┤│
+│  │ EXAONE-3.5    │  │ EXAONE-3.5    │  │ EXAONE-3.5    │  │ EXAONE-3.5    ││
+│  │   7.8B-Inst   │  │   7.8B-Inst   │  │   7.8B-Inst   │  │   7.8B-Inst   ││
+│  ├───────────────┤  ├───────────────┤  ├───────────────┤  ├───────────────┤│
+│  │               │  │               │  │               │  │ + Qwen2.5-VL  ││
+│  │ • keyword-why │  │ • sns-analysis│  │ • review-sum  │  │   (Multimodal)││
+│  │ • category-   │  │ • whitespace- │  │ • category-   │  ├───────────────┤│
+│  │   trend       │  │   product     │  │   strategy    │  │ • rag-insight ││
+│  │ • kbeauty-    │  │               │  │ • whitespace- │  │ • plc-predict ││
+│  │   trends      │  │               │  │   category    │  │ • category-   ││
+│  │               │  │               │  │ • country-    │  │   prediction  ││
+│  │               │  │               │  │   strategy    │  │ • chat/text   ││
+│  │               │  │               │  │               │  │ • chat/multi  ││
+│  │               │  │               │  │               │  │   modal       ││
+│  └───────────────┘  └───────────────┘  └───────────────┘  └───────────────┘│
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                        Load Balancing Strategy                       │   │
+│  ├─────────────────────────────────────────────────────────────────────┤   │
+│  │  • Primary Assignment: 각 기능별 전용 GPU 할당                        │   │
+│  │  • Deep Analysis: GPU 7 전용 (RAG, Report, Chatbot)                  │   │
+│  │  • VLM Tasks: GPU 7의 Qwen2.5-VL 모델 사용                           │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-| 적용 기능 | 장점 | Vector DB |
-|-----------|------|-----------|
-| Category Strategy | 추상적 전략 쿼리의 검색 정확도 향상 | ChromaDB |
-| Category Prediction | 미래 트렌드 예측을 위한 유사 과거 패턴 검색 | ChromaDB |
+### GPU 역할 분담
 
-#### 5. Multi-Query RAG
+| GPU | Port | Model | Primary Functions |
+|-----|------|-------|-------------------|
+| GPU 4 | 5004 | EXAONE-3.5-7.8B | 키워드 분석, 카테고리 트렌드, K-Beauty 트렌드 |
+| GPU 5 | 5005 | EXAONE-3.5-7.8B | SNS 분석, WhiteSpace 제품 비교 |
+| GPU 6 | 5006 | EXAONE-3.5-7.8B | 리뷰 요약, 전략 분석, 국가별 분석 |
+| GPU 7 | 5007 | EXAONE + Qwen2.5-VL | RAG, PLC 예측, 리포트, 멀티모달 챗봇 |
 
-하나의 쿼리를 여러 관점으로 분해하여 검색 커버리지를 극대화합니다.
+---
 
-```
-Original Query: "레티놀 성분이 왜 인기인가?"
-         │
-         ├── Sub-Query 1: "레티놀 효과 리뷰 분석"
-         ├── Sub-Query 2: "레티놀 SNS 언급량 추이"
-         ├── Sub-Query 3: "레티놀 포함 제품 판매 순위"
-         └── Sub-Query 4: "레티놀 관련 성분 트렌드"
-                    │
-                    ▼ Reciprocal Rank Fusion
-              ┌──────────┐
-              │ Merged    │
-              │ Context   │
-              └──────────┘
-```
+## 🔄 Agent Flow
 
-| 적용 기능 | Sub-Query 전략 | Fusion 방식 |
-|-----------|---------------|-------------|
-| Keyword Why | 효과/리뷰/SNS/판매 4방향 분해 | Reciprocal Rank Fusion |
-| Whitespace Category | 경쟁/수요/공급/트렌드 분해 | Weighted Score Fusion |
-
-#### 6. Parent-Document Retrieval
-
-세분화된 chunk로 검색하되, 응답 생성 시에는 상위 문서 전체를 컨텍스트로 활용합니다.
+### Keyword AI Analysis Flow
 
 ```
-Document Store:
-├── Parent: 전체 제품 리뷰 보고서 (2000 tokens)
-│   ├── Child Chunk 1: 성분 분석 (200 tokens) ← Search hit
-│   ├── Child Chunk 2: 사용감 리뷰 (200 tokens)
-│   └── Child Chunk 3: 가격 비교 (200 tokens)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      KEYWORD AI ANALYSIS FLOW                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  User selects keyword ──▶ "Niacinamide"                                    │
+│                                │                                            │
+│                                ▼                                            │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                    STEP 1: Why Analysis (GPU 4)                      │   │
+│  ├─────────────────────────────────────────────────────────────────────┤   │
+│  │  Input: keyword, country, category, trend_data                      │   │
+│  │  Output: { whyRising, consumerNeeds, keyProducts }                  │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                │                                            │
+│                                ▼                                            │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                    STEP 2: PLC Prediction (GPU 7)                    │   │
+│  ├─────────────────────────────────────────────────────────────────────┤   │
+│  │  Input: keyword, historical_scores, current_phase                   │   │
+│  │  Output: {                                                          │   │
+│  │    currentPhase, prediction6m, prediction12m,                       │   │
+│  │    growthDrivers, declineRisks, scenarios, summary                  │   │
+│  │  }                                                                   │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                │                                            │
+│                                ▼                                            │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                    STEP 3: Strategy Analysis (GPU 6)                 │   │
+│  ├─────────────────────────────────────────────────────────────────────┤   │
+│  │  Input: keyword, country, why_analysis, plc_prediction              │   │
+│  │  Output: { marketingStrategy, productDevelopment, targetAudience }  │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                │                                            │
+│                                ▼                                            │
+│                     ┌───────────────────┐                                  │
+│                     │   Save Insight    │                                  │
+│                     │   to MongoDB      │                                  │
+│                     └───────────────────┘                                  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### RAG-based Report Generation Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     RAG REPORT GENERATION FLOW                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  User Request ──▶ "마케팅 리포트 생성"                                      │
+│                          │                                                  │
+│                          ▼                                                  │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │                      RAG Context Retrieval                            │ │
+│  ├───────────────────────────────────────────────────────────────────────┤ │
+│  │  Query: keyword + category + country                                  │ │
+│  │         │                                                             │ │
+│  │         ▼                                                             │ │
+│  │  Vector Similarity Search (trend_data, review_data, product_data)    │ │
+│  │         │                                                             │ │
+│  │         ▼                                                             │ │
+│  │  Retrieved Context (Top-K relevant documents)                        │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+│                          │                                                  │
+│                          ▼                                                  │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │                    3-Step Query Pipeline (GPU 7)                      │ │
+│  ├───────────────────────────────────────────────────────────────────────┤ │
+│  │                                                                       │ │
+│  │  ┌─────────────────────────────────────────────────────────────────┐ │ │
+│  │  │  Query 1: 시장 현황 분석                                         │ │ │
+│  │  │  • 트렌드 동향 • 주요 성분 분석 • 소비자 인사이트                   │ │ │
+│  │  └─────────────────────────────────────────────────────────────────┘ │ │
+│  │                    │                                                  │ │
+│  │                    ▼                                                  │ │
+│  │  ┌─────────────────────────────────────────────────────────────────┐ │ │
+│  │  │  Query 2: 과거 성공 사례 분석                                     │ │ │
+│  │  │  • 유사 트렌드 성공 사례 • 적용 가능한 전략 • 실패 사례 및 교훈     │ │ │
+│  │  └─────────────────────────────────────────────────────────────────┘ │ │
+│  │                    │                                                  │ │
+│  │                    ▼                                                  │ │
+│  │  ┌─────────────────────────────────────────────────────────────────┐ │ │
+│  │  │  Query 3: Agent Insight 생성                                     │ │ │
+│  │  │  • 종합 분석 및 인사이트 • 액션 아이템 제안 • 리스크 및 기회 요인   │ │ │
+│  │  └─────────────────────────────────────────────────────────────────┘ │ │
+│  │                                                                       │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+│                          │                                                  │
+│                          ▼                                                  │
+│              Final Report Assembly & Export                                │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 📁 Project Structure
+
+```
+amore_clue/
+├── 📂 src/                          # Frontend Source
+│   ├── 📂 components/               # React Components
+│   │   ├── TrendInsightDashboard.tsx   # 메인 대시보드
+│   │   ├── SegmentedLeaderboard.tsx    # 키워드 리더보드
+│   │   ├── KeywordAIAnalysis.tsx       # 키워드 AI 분석
+│   │   ├── CategoryAIAnalysis.tsx      # 카테고리 AI 분석
+│   │   ├── ReviewKeywordsPanel.tsx     # 리뷰 키워드 패널
+│   │   ├── SNSTopChart.tsx             # SNS/Retail 차트
+│   │   ├── ProductComparison.tsx       # 제품 비교
+│   │   ├── WhitespaceGapAnalysis.tsx   # 화이트스페이스 분석
+│   │   ├── ChatBot.tsx                 # AI 챗봇
+│   │   ├── ReportModal.tsx             # 리포트 생성 모달
+│   │   └── ...
+│   ├── 📂 services/                 # API Services
+│   │   └── api.ts                      # Backend API 연동
+│   ├── 📂 data/                     # Static Data
+│   │   ├── mockData.ts                 # Mock 데이터
+│   │   ├── countryData.ts              # 국가별 데이터
+│   │   └── leaderboardData.ts          # 리더보드 데이터
+│   └── 📂 utils/                    # Utilities
+│       └── koreanTranslations.ts       # 한글 번역
 │
-└── Retrieved Context: Parent 전체 (2000 tokens) → Richer generation
-```
-
-| 적용 기능 | Parent 단위 | Child 단위 |
-|-----------|------------|------------|
-| Review Summary | 제품별 리뷰 전체 | 개별 리뷰 문장 |
-| RAG Insight | 카테고리별 트렌드 리포트 | 키워드별 통계 |
-
----
-
-### Feature - RAG - DB Mapping
-
-각 AI 기능이 어떤 RAG 기술과 데이터를 사용하는지 한눈에 보여줍니다:
-
-```mermaid
-graph LR
-    subgraph "Features"
-        F1[Review Summary]
-        F2[SNS Analysis]
-        F3[Keyword Why]
-        F4[Category Trend]
-        F5[PLC Prediction]
-        F6[Country Strategy]
-        F7[Category Prediction]
-        F8[Whitespace Analysis]
-        F9[RAG Insight]
-        F10[VLM Chatbot]
-    end
-
-    subgraph "RAG Tech"
-        R1[Adaptive RAG]
-        R2[CRAG]
-        R3[Self-RAG]
-        R4[HyDE]
-        R5[Multi-Query]
-        R6[Parent-Doc]
-    end
-
-    subgraph "Data Store"
-        DB1[(MongoDB\nStructured)]
-        DB2[(ChromaDB\nVector)]
-        DB3[(Chat History\nMemory)]
-    end
-
-    F1 --> R1 & R6
-    F2 --> R3
-    F3 --> R5
-    F4 --> R2
-    F5 --> R3
-    F6 --> R1 & R4
-    F7 --> R4
-    F8 --> R3 & R5
-    F9 --> R2 & R6
-    F10 --> DB3
-
-    R1 & R2 & R3 --> DB1
-    R4 & R5 & R6 --> DB2
-```
-
----
-
-## Tech Stack
-
-| Layer | Technology | Purpose |
-|-------|-----------|---------|
-| Frontend | React 18 + TypeScript + Tailwind CSS | Dashboard UI |
-| Build | Vite 5 | Fast HMR & Build |
-| Backend | Node.js + Express | API Gateway & Proxy |
-| AI Orchestration | Multi-Agent System | GPU-distributed Workflow |
-| LLM | EXAONE-3.5-7.8B-Instruct (x3 GPU) | Text Generation (17GB each) |
-| RAG | Sentence-Transformers + NumPy | 150 Marketing Cases Vector Search |
-| Embedding | paraphrase-multilingual-MiniLM-L12-v2 | 384D Multilingual Embeddings |
-| Database | MongoDB | Persistent Storage |
-| Hosting | Firebase Hosting | Frontend CDN |
-| Tunnel | Cloudflare Tunnel | GPU Server Exposure |
-| GPU | NVIDIA RTX A6000 (x3) | 49GB VRAM each |
-
----
-
-## Project Structure
-
-```
-amore_ver2/
-├── src/                          # Frontend (React + TypeScript)
-│   ├── components/               # 25+ React components
-│   │   ├── ChatBot.tsx           # AI 챗봇 (드래그 & 확장 가능)
-│   │   ├── SegmentedLeaderboard.tsx  # 트렌드 리더보드
-│   │   ├── KeywordAIAnalysis.tsx # 키워드 AI 분석
-│   │   ├── TrendInsightDashboard.tsx # RAG 인사이트 대시보드
-│   │   └── ...                   # 기타 컴포넌트
-│   ├── services/api.ts           # API client (LLM 프록시)
-│   ├── data/                     # 데이터 타입 & 유틸리티
-│   └── App.tsx                   # Main application
+├── 📂 server/                       # Backend Source
+│   ├── index.js                        # Main API Server (Port 5000)
+│   ├── kbeauty_atlas_server.js         # K-Beauty API (Port 5002)
+│   │
+│   ├── 📂 LLM Servers/              # Multi-GPU LLM Servers
+│   │   ├── llm_server_port4.py         # GPU 4 - Keyword/Category
+│   │   ├── llm_server_port5.py         # GPU 5 - SNS/WhiteSpace
+│   │   ├── llm_server_port6.py         # GPU 6 - Review/Strategy
+│   │   └── llm_server_port7.py         # GPU 7 - RAG/Chat/Report
+│   │
+│   ├── 📂 routes/                   # API Routes
+│   │   ├── realData.js                 # Real data endpoints
+│   │   ├── leaderboard.js              # Leaderboard endpoints
+│   │   ├── trends.js                   # Trend endpoints
+│   │   └── workflow.js                 # Workflow endpoints
+│   │
+│   ├── 📂 services/                 # Backend Services
+│   │   ├── llmAgents.js                # LLM Agent orchestration
+│   │   └── trendClassifier.js          # Trend classification
+│   │
+│   ├── 📂 scripts/                  # Utility Scripts
+│   │   ├── build_rag_embeddings.py     # RAG 임베딩 생성
+│   │   └── classify_reviews_exaone.py  # 리뷰 분류
+│   │
+│   ├── 📂 rag_data/                 # RAG Vector Data
+│   │   └── rag_embeddings.json         # Embedding vectors
+│   │
+│   └── 📂 fonts/                    # PDF Fonts
+│       └── NotoSansKR-Regular.ttf      # 한글 폰트
 │
-├── server/                       # Backend
-│   ├── index.js                  # Express API gateway + CORS
-│   ├── routes/                   # API endpoints
-│   │   └── realData.js           # MongoDB 연동 API
-│   ├── rag_data/                 # RAG 임베딩 데이터
-│   │   └── rag_embeddings.json   # 150개 마케팅 사례 벡터
-│   ├── data_for_rag/             # RAG 원본 데이터 (Excel)
-│   ├── scripts/                  # DB & RAG 유틸리티
-│   │   └── build_rag_embeddings.py  # RAG 임베딩 생성기
-│   ├── llm_server_port5.py       # GPU5: SNS, Whitespace, Keyword
-│   ├── llm_server_port6.py       # GPU6: Strategy, Whitespace Category
-│   └── llm_server_port7.py       # GPU7: Chat, Review, RAG Insight
+├── 📂 public/                       # Static Assets
+│   └── 📂 images/                   # Images
+│       └── amore_clue.png              # Logo
 │
-├── .env.production               # Frontend env (Cloudflare Tunnel URL)
-├── firebase.json                 # Firebase hosting config
-└── package.json                  # Frontend dependencies
+├── 📄 Configuration Files
+│   ├── package.json                    # Node dependencies
+│   ├── tsconfig.json                   # TypeScript config
+│   ├── vite.config.ts                  # Vite config
+│   ├── tailwind.config.js              # Tailwind CSS config
+│   ├── firebase.json                   # Firebase config
+│   └── .env.production                 # Production env vars
+│
+└── 📄 README.md                     # This file
 ```
 
 ---
 
-## Getting Started
+## 🛠 Tech Stack
+
+### Frontend
+| Technology | Purpose |
+|------------|---------|
+| React 18 | UI Framework |
+| TypeScript | Type Safety |
+| Vite | Build Tool |
+| Tailwind CSS | Styling |
+| Framer Motion | Animations |
+| Lucide React | Icons |
+| Recharts | Charts |
+
+### Backend
+| Technology | Purpose |
+|------------|---------|
+| Node.js | API Server |
+| Express | Web Framework |
+| Python Flask | LLM Servers |
+| MongoDB Atlas | Database |
+| Cloudflare Tunnel | Secure Exposure |
+
+### AI/ML
+| Technology | Purpose |
+|------------|---------|
+| EXAONE-3.5-7.8B-Instruct | Main LLM |
+| Qwen2.5-VL-7B-Instruct | Vision LLM |
+| Sentence Transformers | Embeddings |
+
+### Infrastructure
+| Technology | Purpose |
+|------------|---------|
+| NVIDIA A6000 (4x) | GPU Cluster |
+| Firebase Hosting | Frontend Hosting |
+| Cloudflare Tunnel | API Exposure |
+
+---
+
+## 🚀 Installation & Setup
 
 ### Prerequisites
-
-- Node.js 20+
-- Python 3.10+ with CUDA support
+- Node.js 18+
+- Python 3.10+
+- CUDA 11.8+
 - MongoDB Atlas account
-- 4x GPU (VRAM 16GB+ each)
 
-### 1. Frontend Setup
-
+### 1. Clone Repository
 ```bash
-npm install
-npm run dev              # Development server
-npx vite build           # Production build
-npx firebase deploy --only hosting
+git clone https://github.com/Jonny-rose-Kim/Amore.git
+cd amore_clue
 ```
 
-### 2. Backend Setup
-
+### 2. Install Dependencies
 ```bash
+# Frontend
+npm install
+
+# Backend
 cd server
 npm install
 pip install -r requirements.txt
-
-# Start API server
-node index.js
-
-# Start GPU LLM servers (3 separate terminals)
-# Conda environment: amore_clue
-source ~/anaconda3/bin/activate amore_clue
-
-python llm_server_port5.py  # GPU5 - EXAONE (SNS, Whitespace, Keyword)
-python llm_server_port6.py  # GPU6 - EXAONE (Strategy, Whitespace Category)
-python llm_server_port7.py  # GPU7 - EXAONE (Chat, Review, RAG Insight)
 ```
 
-### 3. Tunnel Setup (for external access)
-
+### 3. Environment Setup
 ```bash
-# Cloudflare Tunnel (HTTP/2)
-cloudflared tunnel --url http://localhost:5000 --protocol http2
+# .env
+MONGODB_URI=mongodb+srv://...
+VITE_API_BASE_URL=http://localhost:5000/api
 ```
 
-### 4. Environment Variables
+### 4. Start Servers
+```bash
+# Frontend (Development)
+npm run dev
 
-```env
-# server/.env
-GEMINI_API_KEY=your_gemini_api_key
-MONGODB_URI=mongodb+srv://your_connection_string
-MONGODB_DATABASE=amore
-PORT=5000
+# Backend API Server
+cd server && node index.js
+
+# LLM Servers (각 GPU에서 실행)
+CUDA_VISIBLE_DEVICES=4 python llm_server_port4.py
+CUDA_VISIBLE_DEVICES=5 python llm_server_port5.py
+CUDA_VISIBLE_DEVICES=6 python llm_server_port6.py
+CUDA_VISIBLE_DEVICES=7 python llm_server_port7.py
+```
+
+### 5. Build & Deploy
+```bash
+# Build
+npm run build
+
+# Deploy to Firebase
+firebase deploy --only hosting
 ```
 
 ---
 
-## API Endpoints
+## 📡 API Endpoints
 
-| Method | Endpoint | GPU (Port) | RAG Tech | Description |
-|--------|----------|------------|----------|-------------|
-| POST | `/api/llm/sns-analysis` | GPU5 (5005) | Self-RAG | SNS 트렌드 분석 |
-| POST | `/api/llm/keyword-why` | GPU5 (5005) | Multi-Query | 키워드 인기 원인 분석 |
-| POST | `/api/llm/whitespace-product` | GPU5 (5005) | Agentic | 화이트스페이스 제품 발굴 |
-| POST | `/api/llm/category-strategy` | GPU6 (5006) | HyDE | 카테고리 전략 수립 |
-| POST | `/api/llm/whitespace-category` | GPU6 (5006) | Multi-Query | 카테고리 갭 분석 |
-| POST | `/api/chat/text` | GPU7 (5007) | Memory | AI 챗봇 (텍스트) |
-| POST | `/api/chat/multimodal` | GPU7 (5007) | Memory | AI 챗봇 (이미지+텍스트) |
-| POST | `/api/llm/review-summary` | GPU7 (5007) | Parent-Doc | 리뷰 요약 & 감성 분석 |
-| POST | `/api/llm/category-trend` | GPU7 (5007) | Adaptive | 카테고리 트렌드 예측 |
-| POST | `/api/llm/rag-insight` | GPU7 (5007) | CRAG | RAG 기반 심층 인사이트 |
-| POST | `/api/llm/plc-prediction` | GPU7 (5007) | Self-RAG | 제품 수명주기 예측 |
-| POST | `/api/llm/category-prediction` | GPU7 (5007) | HyDE | 카테고리 성장 예측 |
-| POST | `/api/workflow/run` | Cloud | - | LangGraph 배치 워크플로우 |
+### Main API Server (Port 5000)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/health` | Health check |
+| GET | `/api/trends` | Trend data |
+| GET | `/api/leaderboard` | Keyword leaderboard |
+| POST | `/api/insights/save` | Save insight |
+| POST | `/api/insights/export/word` | Export to Word |
+
+### LLM Proxy Endpoints
+
+| Method | Endpoint | GPU | Description |
+|--------|----------|-----|-------------|
+| POST | `/api/llm/keyword-why` | 4 | 키워드 상승 원인 분석 |
+| POST | `/api/llm/category-trend` | 4 | 카테고리 트렌드 분석 |
+| POST | `/api/llm/sns-analysis` | 5 | SNS 인기 키워드 분석 |
+| POST | `/api/llm/whitespace-product` | 5 | 제품 비교 분석 |
+| POST | `/api/llm/review-summary` | 6 | 리뷰 AI 요약 |
+| POST | `/api/llm/category-strategy` | 6 | 카테고리 전략 분석 |
+| POST | `/api/llm/rag-insight` | 7 | RAG 기반 리포트 |
+| POST | `/api/llm/plc-prediction` | 7 | PLC 예측 |
+| POST | `/api/chat/text` | 7 | 텍스트 챗봇 |
+| POST | `/api/chat/multimodal` | 7 | 멀티모달 챗봇 |
 
 ---
 
-## License
+## 📜 License
 
-This project is proprietary software developed for AMOREPACIFIC Corporation.
+This project is proprietary software developed for AMOREPACIFIC.
+
+---
+
+<p align="center">
+  <strong>Built with ❤️ by AMOREPACIFIC AI Team</strong>
+</p>
