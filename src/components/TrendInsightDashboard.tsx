@@ -15,12 +15,12 @@ import ReviewKeywordsPanel from './ReviewKeywordsPanel';
 import OverseasProductList, { OverseasProduct } from './OverseasProductList';
 import DomesticProductList, { DomesticProduct } from './DomesticProductList';
 import ProductComparison from './ProductComparison';
-import { fetchWhitespaceProducts, fetchCombinationLeaderboard, CombinationLeaderboardItem, fetchRAGInsight, getInsights, exportInsightsPDF, exportInsightsWord, saveInsight } from '../services/api';
+import { fetchWhitespaceProducts, fetchCombinationLeaderboard, CombinationLeaderboardItem, fetchRAGInsight, getInsights, exportInsightsWord, saveInsight } from '../services/api';
 import WhitespaceGapAnalysis from './WhitespaceGapAnalysis';
 import ChatBot from './ChatBot';
 import KbeautyNewProductTrends from './KbeautyNewProductTrends';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, Loader2, Sparkles, X, Download, FileText, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { ChevronDown, Loader2, Sparkles, X, Download, FileText, ThumbsUp, ThumbsDown, MessageCircle, Save, BookOpen } from 'lucide-react';
 import { translateReview } from '../utils/koreanTranslations';
 
 type TabType = 'single' | 'combination';
@@ -53,6 +53,10 @@ export default function TrendInsightDashboard() {
   const [isInsightModalOpen, setIsInsightModalOpen] = useState(false);
   const [insightCount, setInsightCount] = useState(0);
   const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [insightNotification, setInsightNotification] = useState<{ show: boolean; count: number }>({ show: false, count: 0 });
+  const prevInsightCountRef = useRef(0);
+  const [showInsightTooltip, setShowInsightTooltip] = useState(true); // 초기에 말풍선 표시
 
   // 리뷰 키워드 팝업 상태 (대시보드 레벨)
   const [reviewModalData, setReviewModalData] = useState<{
@@ -152,6 +156,60 @@ export default function TrendInsightDashboard() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isCountryDropdownOpen]);
+
+  // 인사이트 카운트 폴링 및 알림
+  useEffect(() => {
+    const pollInsightCount = async () => {
+      try {
+        const result = await getInsights();
+        const newCount = result.count;
+
+        // 카운트가 증가했을 때 알림 표시
+        if (newCount > prevInsightCountRef.current && prevInsightCountRef.current > 0) {
+          setInsightNotification({ show: true, count: newCount });
+          // 3초 후 알림 숨기기
+          setTimeout(() => {
+            setInsightNotification({ show: false, count: newCount });
+          }, 3000);
+        }
+
+        prevInsightCountRef.current = newCount;
+        setInsightCount(newCount);
+      } catch (error) {
+        // 에러 무시
+      }
+    };
+
+    // 초기 로드
+    pollInsightCount();
+
+    // 5초마다 폴링
+    const interval = setInterval(pollInsightCount, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // 1분마다 인사이트 저장 버튼 설명 말풍선 표시
+  useEffect(() => {
+    // 초기에 5초 후 말풍선 숨기기
+    const initialTimeout = setTimeout(() => {
+      setShowInsightTooltip(false);
+    }, 5000);
+
+    // 1분마다 말풍선 다시 표시
+    const tooltipInterval = setInterval(() => {
+      setShowInsightTooltip(true);
+      // 5초 후 숨기기
+      setTimeout(() => {
+        setShowInsightTooltip(false);
+      }, 5000);
+    }, 60000); // 1분
+
+    return () => {
+      clearTimeout(initialTimeout);
+      clearInterval(tooltipInterval);
+    };
+  }, []);
 
   const isOverseas = true; // 항상 해외 모드
   const theme = countryThemes[country];
@@ -374,20 +432,100 @@ export default function TrendInsightDashboard() {
 
             {/* 인사이트 저장 버튼 + 국가 선택 드롭박스 */}
             <div className="flex items-center gap-4">
-              {/* 인사이트 저장 버튼 */}
-              <motion.button
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-                onClick={async () => {
-                  const result = await getInsights();
-                  setInsightCount(result.count);
-                  setIsInsightModalOpen(true);
-                }}
-                className="px-5 py-2.5 rounded-xl font-semibold transition-all flex items-center gap-2 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white shadow-lg shadow-violet-500/30"
-              >
-                <Sparkles className="w-4 h-4" />
-                <span>📥 인사이트 저장</span>
-              </motion.button>
+              {/* 인사이트 저장 버튼 - 동적 애니메이션 */}
+              <div className="relative">
+                {/* 설명 말풍선 - 1분마다 표시 */}
+                <AnimatePresence>
+                  {showInsightTooltip && !insightNotification.show && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                      className="absolute top-full left-1/2 -translate-x-1/2 mt-3 bg-gradient-to-r from-slate-700 to-slate-800 text-white px-4 py-3 rounded-xl shadow-xl whitespace-nowrap z-50 max-w-xs"
+                    >
+                      <div className="flex items-start gap-2">
+                        <MessageCircle className="w-5 h-5 text-violet-300 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-medium text-sm">AI 분석 후 생성된 인사이트를</p>
+                          <p className="font-medium text-sm">저장하고 싶다면 눌러주세요!</p>
+                        </div>
+                      </div>
+                      {/* 말풍선 꼬리 - 상단 중앙 */}
+                      <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-b-8 border-transparent border-b-slate-700"></div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* 알림 말풍선 - 좌측 하단 */}
+                <AnimatePresence>
+                  {insightNotification.show && (
+                    <motion.div
+                      initial={{ opacity: 0, x: -10, scale: 0.9 }}
+                      animate={{ opacity: 1, x: 0, scale: 1 }}
+                      exit={{ opacity: 0, x: -10, scale: 0.9 }}
+                      className="absolute top-full left-0 mt-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-4 py-2 rounded-xl shadow-lg whitespace-nowrap z-50"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">✨</span>
+                        <span className="font-bold">인사이트 {insightNotification.count}회 생성!</span>
+                      </div>
+                      {/* 말풍선 꼬리 - 좌측 상단 */}
+                      <div className="absolute -top-2 left-4 w-0 h-0 border-l-8 border-r-8 border-b-8 border-transparent border-b-emerald-500"></div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* 인사이트 카운트 배지 */}
+                {insightCount > 0 && (
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="absolute -top-2 -right-2 w-6 h-6 bg-emerald-500 text-white text-xs font-bold rounded-full flex items-center justify-center z-10 shadow-lg"
+                  >
+                    {insightCount}
+                  </motion.div>
+                )}
+
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  animate={{
+                    boxShadow: [
+                      '0 0 0 0 rgba(139, 92, 246, 0.4)',
+                      '0 0 0 12px rgba(139, 92, 246, 0)',
+                      '0 0 0 0 rgba(139, 92, 246, 0)'
+                    ],
+                  }}
+                  transition={{
+                    boxShadow: {
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: 'easeInOut'
+                    }
+                  }}
+                  onClick={async () => {
+                    const result = await getInsights();
+                    setInsightCount(result.count);
+                    setExportError(null);
+                    setIsInsightModalOpen(true);
+                  }}
+                  className="px-5 py-2.5 rounded-xl font-semibold transition-all flex items-center gap-2 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white shadow-lg shadow-violet-500/30 relative overflow-hidden"
+                >
+                  <motion.div
+                    animate={{ rotate: [0, 15, -15, 0] }}
+                    transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+                  >
+                    <Sparkles className="w-4 h-4" />
+                  </motion.div>
+                  <span>📥 인사이트 저장</span>
+                  {/* 반짝이는 효과 */}
+                  <motion.div
+                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                    animate={{ x: ['-100%', '100%'] }}
+                    transition={{ duration: 2.5, repeat: Infinity, ease: 'linear', repeatDelay: 1.5 }}
+                  />
+                </motion.button>
+              </div>
 
               {/* 국가 선택 드롭박스 */}
               <div className="relative" ref={countryDropdownRef}>
@@ -901,127 +1039,151 @@ export default function TrendInsightDashboard() {
       {/* AI 챗봇 */}
       <ChatBot />
 
-      {/* 인사이트 저장 모달 */}
+      {/* 인사이트 저장 모달 - 개선된 UI */}
       <AnimatePresence>
         {isInsightModalOpen && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+            className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4"
             onClick={() => setIsInsightModalOpen(false)}
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4"
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="bg-gradient-to-br from-white to-slate-50 rounded-3xl shadow-2xl max-w-xl w-full mx-4 overflow-hidden border border-slate-200"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-emerald-500" />
-                  인사이트 저장
-                </h3>
-                <button
-                  onClick={() => setIsInsightModalOpen(false)}
-                  className="p-1 rounded-full hover:bg-slate-100 transition-colors"
-                >
-                  <X className="w-5 h-5 text-slate-500" />
-                </button>
-              </div>
-
-              <div className="mb-6">
-                <p className="text-slate-600 text-sm mb-2">
-                  현재 세션에서 생성된 AI 인사이트를 파일로 저장합니다.
-                </p>
-                <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
-                  <p className="text-sm text-slate-700">
-                    저장된 인사이트: <span className="font-bold text-emerald-600">{insightCount}개</span>
-                  </p>
+              {/* 헤더 - 그라데이션 배경 */}
+              <div className="bg-gradient-to-r from-violet-500 via-purple-500 to-indigo-500 px-8 py-6 text-white">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center">
+                      <BookOpen className="w-7 h-7" />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-bold">AI 인사이트 저장</h3>
+                      <p className="text-white/80 text-sm mt-1">분석 결과를 문서로 내보내기</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setIsInsightModalOpen(false)}
+                    className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
                 </div>
               </div>
 
-              {insightCount === 0 ? (
-                <div className="text-center py-4">
-                  <p className="text-slate-500 text-sm">
-                    아직 저장된 인사이트가 없습니다.<br />
-                    AI 분석을 실행하면 인사이트가 자동으로 수집됩니다.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <p className="text-sm font-medium text-slate-700 mb-2">저장 형식 선택:</p>
-                  <button
-                    onClick={async () => {
-                      setIsExporting(true);
-                      try {
-                        const blob = await exportInsightsPDF();
-                        if (blob) {
-                          const url = URL.createObjectURL(blob);
-                          const a = document.createElement('a');
-                          a.href = url;
-                          a.download = `amore_insights_${new Date().toISOString().split('T')[0]}.pdf`;
-                          document.body.appendChild(a);
-                          a.click();
-                          document.body.removeChild(a);
-                          URL.revokeObjectURL(url);
-                          setIsInsightModalOpen(false);
-                        }
-                      } catch (err) {
-                        console.error('PDF export failed:', err);
-                      } finally {
-                        setIsExporting(false);
-                      }
-                    }}
-                    disabled={isExporting}
-                    className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-red-500 to-rose-500 text-white font-medium flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
-                  >
-                    {isExporting ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <>
-                        <FileText className="w-5 h-5" />
-                        PDF로 저장
-                      </>
+              {/* 컨텐츠 */}
+              <div className="p-8">
+                {/* 인사이트 카운트 카드 */}
+                <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl p-6 border border-emerald-200 mb-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                        <Sparkles className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-slate-600 text-sm font-medium">현재 세션 수집 인사이트</p>
+                        <p className="text-3xl font-bold text-emerald-600">{insightCount}<span className="text-lg ml-1">개</span></p>
+                      </div>
+                    </div>
+                    {insightCount > 0 && (
+                      <div className="text-right">
+                        <span className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-500 text-white text-sm font-medium rounded-full">
+                          <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+                          저장 가능
+                        </span>
+                      </div>
                     )}
-                  </button>
-                  <button
-                    onClick={async () => {
-                      setIsExporting(true);
-                      try {
-                        const blob = await exportInsightsWord();
-                        if (blob) {
-                          const url = URL.createObjectURL(blob);
-                          const a = document.createElement('a');
-                          a.href = url;
-                          a.download = `amore_insights_${new Date().toISOString().split('T')[0]}.docx`;
-                          document.body.appendChild(a);
-                          a.click();
-                          document.body.removeChild(a);
-                          URL.revokeObjectURL(url);
-                          setIsInsightModalOpen(false);
-                        }
-                      } catch (err) {
-                        console.error('Word export failed:', err);
-                      } finally {
-                        setIsExporting(false);
-                      }
-                    }}
-                    disabled={isExporting}
-                    className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-medium flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
-                  >
-                    {isExporting ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <>
-                        <FileText className="w-5 h-5" />
-                        Word로 저장
-                      </>
-                    )}
-                  </button>
+                  </div>
                 </div>
-              )}
+
+                {/* 안내 메시지 */}
+                <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 mb-6">
+                  <div className="flex items-start gap-3">
+                    <MessageCircle className="w-5 h-5 text-slate-500 mt-0.5 flex-shrink-0" />
+                    <div className="text-sm text-slate-600">
+                      <p className="font-medium text-slate-700 mb-1">인사이트란?</p>
+                      <p>키워드 AI 분석, 카테고리 AI 분석, 리뷰 AI 요약, SNS/Retail 분석 등을 실행하면 자동으로 수집됩니다.</p>
+                    </div>
+                  </div>
+                </div>
+
+                {insightCount === 0 ? (
+                  <div className="text-center py-8">
+                    <div className="w-20 h-20 mx-auto mb-4 bg-slate-100 rounded-full flex items-center justify-center">
+                      <FileText className="w-10 h-10 text-slate-400" />
+                    </div>
+                    <p className="text-slate-500 text-lg font-medium mb-2">아직 수집된 인사이트가 없습니다</p>
+                    <p className="text-slate-400 text-sm">AI 분석 기능을 사용해보세요!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {exportError && (
+                      <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm flex items-center gap-2">
+                        <X className="w-5 h-5 flex-shrink-0" />
+                        {exportError}
+                      </div>
+                    )}
+
+                    {/* Word 저장 버튼 */}
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={async () => {
+                        setIsExporting(true);
+                        setExportError(null);
+                        try {
+                          const blob = await exportInsightsWord();
+                          if (blob) {
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `amore_insights_${new Date().toISOString().split('T')[0]}.docx`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                            setIsInsightModalOpen(false);
+                            setExportError(null);
+                          } else {
+                            setExportError('Word 내보내기에 실패했습니다. 인사이트가 저장되어 있는지 확인해주세요.');
+                          }
+                        } catch (err) {
+                          console.error('Word export failed:', err);
+                          setExportError('Word 내보내기 중 오류가 발생했습니다.');
+                        } finally {
+                          setIsExporting(false);
+                        }
+                      }}
+                      disabled={isExporting}
+                      className="w-full py-5 px-6 rounded-2xl bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 text-white font-semibold flex items-center justify-center gap-3 hover:shadow-xl hover:shadow-indigo-500/30 transition-all disabled:opacity-50 text-lg"
+                    >
+                      {isExporting ? (
+                        <>
+                          <Loader2 className="w-6 h-6 animate-spin" />
+                          <span>내보내는 중...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-6 h-6" />
+                          <span>Word 문서로 저장</span>
+                          <span className="ml-2 px-2 py-0.5 bg-white/20 rounded-lg text-sm">.docx</span>
+                        </>
+                      )}
+                    </motion.button>
+
+                    <p className="text-center text-xs text-slate-400 mt-4">
+                      저장 후 인사이트는 초기화됩니다
+                    </p>
+                  </div>
+                )}
+              </div>
             </motion.div>
           </motion.div>
         )}

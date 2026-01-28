@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Lightbulb, TrendingUp, BarChart3, ShoppingBag, Globe, ChevronDown, AlertTriangle, CheckCircle, Target, BookOpen, Info } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Lightbulb, TrendingUp, BarChart3, ShoppingBag, Globe, ChevronDown, AlertTriangle, CheckCircle, Target, BookOpen, Info, X, Maximize2, ArrowUpRight, ArrowDownRight, Shuffle } from 'lucide-react';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import {
   fetchLLMKeywordWhy,
@@ -9,6 +10,7 @@ import {
   fetchTrendEvidence,
   fetchProductsByKeyword,
   fetchCombinedKeywordDescription,
+  saveInsight,
   WhyTrendingData,
   PLCPredictionData,
   CountryStrategyData,
@@ -57,6 +59,65 @@ function SectionError({ message }: { message: string }) {
   );
 }
 
+// 확대 모달 컴포넌트
+interface ExpandedModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  icon: React.ReactNode;
+  gradientClass: string;
+  children: React.ReactNode;
+}
+
+function ExpandedModal({ isOpen, onClose, title, icon, gradientClass, children }: ExpandedModalProps) {
+  if (!isOpen) return null;
+
+  // Portal을 사용하여 document.body에 직접 렌더링 (대시보드 전체 레벨)
+  return createPortal(
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 20 }}
+          className="bg-white rounded-3xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col border-2 border-slate-200"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* 헤더 */}
+          <div className={`flex items-center justify-between p-6 border-b bg-gradient-to-r ${gradientClass} text-white rounded-t-3xl`}>
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-white/20">
+                {icon}
+              </div>
+              <div>
+                <h3 className="text-2xl font-bold">{title}</h3>
+                <p className="text-white/80 text-sm">상세 분석 정보</p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-12 h-12 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+          {/* 내용 */}
+          <div className="flex-1 overflow-y-auto p-6">
+            {children}
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>,
+    document.body
+  );
+}
+
 export default function KeywordAIAnalysis({
   keyword,
   country,
@@ -71,6 +132,9 @@ export default function KeywordAIAnalysis({
   // Section states
   const [descriptionData, setDescriptionData] = useState<CombinedKeywordDescriptionData | null>(null);
   const [descriptionLoading, setDescriptionLoading] = useState(true);
+
+  // 확대 모달 상태
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
   const [whyData, setWhyData] = useState<WhyTrendingData | null>(null);
   const [whyLoading, setWhyLoading] = useState(true);
@@ -89,6 +153,14 @@ export default function KeywordAIAnalysis({
   const [strategyData, setStrategyData] = useState<CountryStrategyData | null>(null);
   const [strategyLoading, setStrategyLoading] = useState(true);
   const [strategyError, setStrategyError] = useState('');
+
+  // 중복 저장 방지를 위한 ref
+  const savedInsightsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    // 키워드 변경 시 저장 기록 초기화
+    savedInsightsRef.current = new Set();
+  }, [keyword]);
 
   useEffect(() => {
     // Fire all 6 requests in parallel on mount
@@ -114,6 +186,17 @@ export default function KeywordAIAnalysis({
       }).then(data => {
         if (data.success) {
           setWhyData(data);
+          // 인사이트 자동 저장 - 트렌드 이유 분석 (중복 방지)
+          const insightKey = `why-${keyword}`;
+          if (!savedInsightsRef.current.has(insightKey)) {
+            savedInsightsRef.current.add(insightKey);
+            saveInsight(
+              'keyword-why',
+              `키워드 분석: ${keyword} - 트렌드 이유`,
+              `${data.explanation}\n\n핵심 요인: ${data.keyFactors.join(', ')}`,
+              { keyword, country, category, trendLevel }
+            );
+          }
         } else {
           setWhyError(data.error || 'AI 분석 서버 응답 오류');
         }
@@ -142,6 +225,17 @@ export default function KeywordAIAnalysis({
       }).then(data => {
         if (data.success) {
           setPlcData(data);
+          // 인사이트 자동 저장 - 6-12개월 예측 (중복 방지)
+          const insightKey = `plc-${keyword}`;
+          if (!savedInsightsRef.current.has(insightKey)) {
+            savedInsightsRef.current.add(insightKey);
+            saveInsight(
+              'keyword-plc',
+              `키워드 분석: ${keyword} - 6-12개월 예측`,
+              `현재: ${data.currentPhase} → 6개월: ${data.prediction6m} → 12개월: ${data.prediction12m}\n\n${data.summary || data.explanation}`,
+              { keyword, country, category, currentPhase: data.currentPhase }
+            );
+          }
         } else {
           setPlcError(data.error || 'PLC 예측 서버 응답 오류');
         }
@@ -171,6 +265,21 @@ export default function KeywordAIAnalysis({
       }).then(data => {
         if (data.success) {
           setStrategyData(data);
+          // 인사이트 자동 저장 - 국가별 전략 (중복 방지)
+          const insightKey = `strategy-${keyword}-${country}`;
+          if (!savedInsightsRef.current.has(insightKey)) {
+            savedInsightsRef.current.add(insightKey);
+            const countryNames: Record<string, string> = {
+              usa: '미국', japan: '일본', singapore: '싱가포르',
+              malaysia: '말레이시아', indonesia: '인도네시아',
+            };
+            saveInsight(
+              'keyword-strategy',
+              `키워드 분석: ${keyword} - ${countryNames[country] || country} 전략`,
+              `시장분석: ${data.marketAnalysis}\n\n기회: ${data.opportunities.join(', ')}\n\n전략: ${data.strategies.join(', ')}`,
+              { keyword, country, category }
+            );
+          }
         } else {
           setStrategyError(data.error || '전략 분석 서버 응답 오류');
         }
@@ -197,11 +306,15 @@ export default function KeywordAIAnalysis({
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0 }}
-        className="border border-slate-200 rounded-lg p-4 bg-gradient-to-br from-emerald-50/50 to-white"
+        className="border border-slate-200 rounded-lg p-4 bg-gradient-to-br from-emerald-50/50 to-white cursor-pointer hover:shadow-lg hover:border-emerald-300 transition-all group"
+        onClick={() => setExpandedSection('description')}
       >
-        <div className="flex items-center gap-2 mb-3">
-          <BookOpen className="w-4 h-4 text-emerald-500" />
-          <h4 className="text-slate-900 font-semibold text-sm">키워드의 의미</h4>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <BookOpen className="w-4 h-4 text-emerald-500" />
+            <h4 className="text-slate-900 font-semibold text-sm">키워드의 의미</h4>
+          </div>
+          <Maximize2 className="w-4 h-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
 
         {descriptionLoading ? (
@@ -323,11 +436,15 @@ export default function KeywordAIAnalysis({
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.05 }}
-        className="border border-slate-200 rounded-lg p-4 bg-gradient-to-br from-amber-50/50 to-white"
+        className="border border-slate-200 rounded-lg p-4 bg-gradient-to-br from-amber-50/50 to-white cursor-pointer hover:shadow-lg hover:border-amber-300 transition-all group"
+        onClick={() => setExpandedSection('why')}
       >
-        <div className="flex items-center gap-2 mb-3">
-          <Lightbulb className="w-4 h-4 text-amber-500" />
-          <h4 className="text-slate-900 font-semibold text-sm">왜 이 키워드가 트렌드인가?</h4>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Lightbulb className="w-4 h-4 text-amber-500" />
+            <h4 className="text-slate-900 font-semibold text-sm">왜 이 키워드가 트렌드인가?</h4>
+          </div>
+          <Maximize2 className="w-4 h-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
 
         {whyLoading ? (
@@ -359,26 +476,30 @@ export default function KeywordAIAnalysis({
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="border border-slate-200 rounded-lg p-4 bg-white"
+        className="border border-slate-200 rounded-lg p-4 bg-white cursor-pointer hover:shadow-lg hover:border-rose-300 transition-all group"
+        onClick={() => setExpandedSection('trend')}
       >
-        <div className="flex items-center gap-2 mb-3">
-          <TrendingUp className="w-4 h-4 text-rose-500" />
-          <h4 className="text-slate-900 font-semibold text-sm">키워드 추세 시각화</h4>
-          <div className="relative group ml-1">
-            <Info className="w-3.5 h-3.5 text-slate-400 cursor-help" />
-            <div className="absolute left-0 bottom-full mb-2 w-72 p-3 bg-slate-800 text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-              <div className="font-semibold mb-2 text-rose-300">추세 지표 설명</div>
-              <div className="space-y-1.5">
-                <div><span className="text-pink-400 font-medium">SNS 추세:</span> Instagram, TikTok 등 소셜미디어 언급량 기반 정규화 지수 (0-100)</div>
-                <div><span className="text-orange-400 font-medium">Retail 추세:</span> Amazon, Sephora 등 리테일 플랫폼 검색/판매 신호 정규화 지수 (0-100)</div>
-                <div><span className="text-cyan-400 font-medium">Review 추세:</span> 소비자 리뷰 언급 빈도 및 감성 반영 정규화 지수 (0-100)</div>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-rose-500" />
+            <h4 className="text-slate-900 font-semibold text-sm">키워드 추세 시각화</h4>
+            <div className="relative group/info ml-1" onClick={(e) => e.stopPropagation()}>
+              <Info className="w-3.5 h-3.5 text-slate-400 cursor-help" />
+              <div className="absolute left-0 bottom-full mb-2 w-72 p-3 bg-slate-800 text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible transition-all duration-200 z-50">
+                <div className="font-semibold mb-2 text-rose-300">추세 지표 설명</div>
+                <div className="space-y-1.5">
+                  <div><span className="text-pink-400 font-medium">SNS 추세:</span> Instagram, TikTok 등 소셜미디어 언급량 기반 정규화 지수 (0-100)</div>
+                  <div><span className="text-orange-400 font-medium">Retail 추세:</span> Amazon, Sephora 등 리테일 플랫폼 검색/판매 신호 정규화 지수 (0-100)</div>
+                  <div><span className="text-cyan-400 font-medium">Review 추세:</span> 소비자 리뷰 언급 빈도 및 감성 반영 정규화 지수 (0-100)</div>
+                </div>
+                <div className="mt-2 pt-2 border-t border-slate-600 text-slate-300">
+                  숫자가 높을수록 해당 채널에서 키워드 관심도가 높음을 의미합니다.
+                </div>
+                <div className="absolute left-4 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-800"></div>
               </div>
-              <div className="mt-2 pt-2 border-t border-slate-600 text-slate-300">
-                숫자가 높을수록 해당 채널에서 키워드 관심도가 높음을 의미합니다.
-              </div>
-              <div className="absolute left-4 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-800"></div>
             </div>
           </div>
+          <Maximize2 className="w-4 h-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
 
         {trendLoading ? (
@@ -504,11 +625,25 @@ export default function KeywordAIAnalysis({
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15 }}
-        className="border border-slate-200 rounded-lg p-4 bg-gradient-to-br from-purple-50/50 to-white"
+        className="border border-slate-200 rounded-lg p-4 bg-gradient-to-br from-purple-50/50 to-white cursor-pointer hover:shadow-lg hover:border-purple-300 transition-all group"
+        onClick={() => setExpandedSection('plc')}
       >
-        <div className="flex items-center gap-2 mb-3">
-          <BarChart3 className="w-4 h-4 text-purple-500" />
-          <h4 className="text-slate-900 font-semibold text-sm">AI 기반 향후 6-12개월 예측</h4>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-purple-500" />
+            <h4 className="text-slate-900 font-semibold text-sm">AI 기반 향후 6-12개월 예측</h4>
+            <div className="relative group/info" onClick={(e) => e.stopPropagation()}>
+              <Info className="w-3.5 h-3.5 text-slate-400 cursor-help" />
+              <div className="absolute left-0 bottom-full mb-2 w-56 p-3 bg-slate-800 text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible transition-all duration-200 z-50">
+                <div className="font-semibold mb-1.5 text-purple-300">💡 상세 보기</div>
+                <div className="text-slate-300 leading-relaxed">
+                  박스를 클릭하면 성장 드라이버, 하락 리스크, 시나리오 분석 등 더 자세한 내용을 확인할 수 있습니다.
+                </div>
+                <div className="absolute left-4 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-800"></div>
+              </div>
+            </div>
+          </div>
+          <Maximize2 className="w-4 h-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
 
         {plcLoading ? (
@@ -558,23 +693,180 @@ export default function KeywordAIAnalysis({
               </div>
             )}
 
-            <p className="text-slate-600 text-xs leading-relaxed">
-              {plcData.explanation}
-            </p>
+            {/* 종합의견 (전체 표시) */}
+            {plcData.summary && (
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 mt-2">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Lightbulb className="w-3.5 h-3.5 text-purple-500" />
+                  <span className="text-xs font-semibold text-purple-700">종합의견</span>
+                </div>
+                <p className="text-slate-700 text-xs leading-relaxed">
+                  {plcData.summary}
+                </p>
+              </div>
+            )}
+            {!plcData.summary && plcData.explanation && (
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 mt-2">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Lightbulb className="w-3.5 h-3.5 text-purple-500" />
+                  <span className="text-xs font-semibold text-purple-700">종합의견</span>
+                </div>
+                <p className="text-slate-700 text-xs leading-relaxed">
+                  {plcData.explanation}
+                </p>
+              </div>
+            )}
           </div>
         ) : null}
       </motion.div>
+
+      {/* PLC 확대 모달 */}
+      <ExpandedModal
+        isOpen={expandedSection === 'plc'}
+        onClose={() => setExpandedSection(null)}
+        title="AI 기반 향후 6-12개월 예측"
+        icon={<BarChart3 className="w-6 h-6" />}
+        gradientClass="from-purple-500 to-violet-600"
+      >
+        {plcData && (
+          <div className="space-y-6">
+            {/* Phase badges - 큰 버전 */}
+            <div className="flex items-center justify-center gap-4 flex-wrap py-4 bg-purple-50 rounded-xl">
+              <div className="text-center px-6 py-3 bg-purple-100 rounded-xl">
+                <div className="text-xs text-purple-600 mb-1">현재 단계</div>
+                <div className="text-xl font-bold text-purple-700">{plcData.currentPhase}</div>
+              </div>
+              <div className="text-purple-300 text-2xl">→</div>
+              <div className="text-center px-6 py-3 bg-purple-50 rounded-xl border border-purple-200">
+                <div className="text-xs text-purple-500 mb-1">6개월 후</div>
+                <div className="text-lg font-semibold text-purple-600">{plcData.prediction6m}</div>
+              </div>
+              <div className="text-purple-300 text-2xl">→</div>
+              <div className="text-center px-6 py-3 bg-purple-50 rounded-xl border border-purple-200">
+                <div className="text-xs text-purple-500 mb-1">12개월 후</div>
+                <div className="text-lg font-semibold text-purple-600">{plcData.prediction12m}</div>
+              </div>
+            </div>
+
+            {/* 큰 차트 */}
+            {plcData.monthlyScores.length > 0 && (
+              <div className="bg-white border border-purple-100 rounded-xl p-6">
+                <ResponsiveContainer width="100%" height={250}>
+                  <AreaChart data={plcData.monthlyScores.map((val, idx) => ({
+                    name: idx === 0 ? '현재' : `${idx}개월`,
+                    value: Math.round(val),
+                  }))}>
+                    <defs>
+                      <linearGradient id="plcGradientExpanded" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.1} />
+                      </linearGradient>
+                    </defs>
+                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} domain={[0, 100]} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: 'rgba(30,41,59,0.95)', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '13px', padding: '10px 14px' }}
+                      formatter={(value: number) => [`${value}점`, '예측 점수']}
+                    />
+                    <Area type="monotone" dataKey="value" stroke="#8b5cf6" strokeWidth={3} fill="url(#plcGradientExpanded)" dot={{ fill: '#8b5cf6', r: 4 }} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {/* 구조화된 분석 내용 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* 성장 드라이버 */}
+              {plcData.growthDrivers && plcData.growthDrivers.length > 0 && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <ArrowUpRight className="w-5 h-5 text-emerald-500" />
+                    <h5 className="font-bold text-emerald-700">성장 드라이버</h5>
+                  </div>
+                  <div className="space-y-2">
+                    {plcData.growthDrivers.map((driver, idx) => (
+                      <div key={idx} className="flex items-start gap-2">
+                        <CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+                        <span className="text-sm text-slate-700">{driver}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 하락 리스크 */}
+              {plcData.declineRisks && plcData.declineRisks.length > 0 && (
+                <div className="bg-rose-50 border border-rose-200 rounded-xl p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <ArrowDownRight className="w-5 h-5 text-rose-500" />
+                    <h5 className="font-bold text-rose-700">하락 리스크</h5>
+                  </div>
+                  <div className="space-y-2">
+                    {plcData.declineRisks.map((risk, idx) => (
+                      <div key={idx} className="flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 text-rose-500 mt-0.5 flex-shrink-0" />
+                        <span className="text-sm text-slate-700">{risk}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 시나리오 */}
+            {plcData.scenarios && plcData.scenarios.length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Shuffle className="w-5 h-5 text-amber-500" />
+                  <h5 className="font-bold text-amber-700">조건부 시나리오</h5>
+                </div>
+                <div className="space-y-3">
+                  {plcData.scenarios.map((scenario, idx) => (
+                    <div key={idx} className="flex items-start gap-2 bg-white/50 rounded-lg p-3">
+                      <span className={`px-2 py-0.5 rounded text-xs font-bold flex-shrink-0 ${
+                        scenario.includes('긍정') || scenario.includes('성장') || scenario.includes('지속')
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-rose-100 text-rose-700'
+                      }`}>
+                        {scenario.includes('긍정') || scenario.includes('성장') || scenario.includes('지속') ? '긍정' : '부정'}
+                      </span>
+                      <span className="text-sm text-slate-700">{scenario.replace(/^(긍정|부정)\s*시나리오\s*:\s*/i, '')}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 종합 의견 */}
+            {(plcData.summary || plcData.explanation) && (
+              <div className="bg-gradient-to-r from-purple-500 to-violet-600 rounded-xl p-6 text-white">
+                <div className="flex items-center gap-2 mb-3">
+                  <Lightbulb className="w-5 h-5 text-yellow-200" />
+                  <h5 className="font-bold">종합 의견</h5>
+                </div>
+                <p className="text-white/95 leading-relaxed">
+                  {plcData.summary || plcData.explanation}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </ExpandedModal>
 
       {/* Section 4: 관련 제품 */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="border border-slate-200 rounded-lg p-4 bg-white"
+        className="border border-slate-200 rounded-lg p-4 bg-white cursor-pointer hover:shadow-lg hover:border-rose-300 transition-all group"
+        onClick={() => setExpandedSection('products')}
       >
-        <div className="flex items-center gap-2 mb-3">
-          <ShoppingBag className="w-4 h-4 text-rose-500" />
-          <h4 className="text-slate-900 font-semibold text-sm">관련 제품</h4>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <ShoppingBag className="w-4 h-4 text-rose-500" />
+            <h4 className="text-slate-900 font-semibold text-sm">관련 제품</h4>
+          </div>
+          <Maximize2 className="w-4 h-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
 
         {productsLoading ? (
@@ -619,11 +911,15 @@ export default function KeywordAIAnalysis({
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.25 }}
-        className="border border-slate-200 rounded-lg p-4 bg-gradient-to-br from-blue-50/50 to-white"
+        className="border border-slate-200 rounded-lg p-4 bg-gradient-to-br from-blue-50/50 to-white cursor-pointer hover:shadow-lg hover:border-blue-300 transition-all group"
+        onClick={() => setExpandedSection('strategy')}
       >
-        <div className="flex items-center gap-2 mb-3">
-          <Globe className="w-4 h-4 text-blue-500" />
-          <h4 className="text-slate-900 font-semibold text-sm">{countryName} 키워드 전략 분석</h4>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Globe className="w-4 h-4 text-blue-500" />
+            <h4 className="text-slate-900 font-semibold text-sm">{countryName} 키워드 전략 분석</h4>
+          </div>
+          <Maximize2 className="w-4 h-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
 
         {strategyLoading ? (
@@ -702,6 +998,217 @@ export default function KeywordAIAnalysis({
           </div>
         ) : null}
       </motion.div>
+
+      {/* 키워드 의미 확대 모달 */}
+      <ExpandedModal
+        isOpen={expandedSection === 'description'}
+        onClose={() => setExpandedSection(null)}
+        title="키워드의 의미"
+        icon={<BookOpen className="w-6 h-6" />}
+        gradientClass="from-emerald-500 to-teal-600"
+      >
+        {descriptionData && descriptionData.keywords.length > 0 && (
+          <div className="space-y-6">
+            {descriptionData.keywords.map((kw, idx) => (
+              <div
+                key={idx}
+                className={`p-6 rounded-xl border-2 ${
+                  kw.keywordType === 'ingredient' ? 'bg-pink-50 border-pink-300' :
+                  kw.keywordType === 'formulas' ? 'bg-blue-50 border-blue-300' :
+                  kw.keywordType === 'effects' ? 'bg-amber-50 border-amber-300' :
+                  'bg-purple-50 border-purple-300'
+                }`}
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <span className={`px-4 py-2 rounded-lg text-lg font-bold ${
+                    kw.keywordType === 'ingredient' ? 'bg-pink-200 text-pink-800' :
+                    kw.keywordType === 'formulas' ? 'bg-blue-200 text-blue-800' :
+                    kw.keywordType === 'effects' ? 'bg-amber-200 text-amber-800' :
+                    'bg-purple-200 text-purple-800'
+                  }`}>
+                    {kw.koreanName || kw.keyword}
+                  </span>
+                  <span className={`text-sm px-3 py-1 rounded-full ${
+                    kw.keywordType === 'ingredient' ? 'bg-pink-100 text-pink-600' :
+                    kw.keywordType === 'formulas' ? 'bg-blue-100 text-blue-600' :
+                    kw.keywordType === 'effects' ? 'bg-amber-100 text-amber-600' :
+                    'bg-purple-100 text-purple-600'
+                  }`}>
+                    {kw.keywordType === 'ingredient' ? '🧪 성분' :
+                     kw.keywordType === 'formulas' ? '💧 제형' :
+                     kw.keywordType === 'effects' ? '✨ 효과' : '🎨 무드'}
+                  </span>
+                </div>
+                <p className="text-slate-700 leading-relaxed text-base">
+                  {kw.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </ExpandedModal>
+
+      {/* 왜 트렌드인가 확대 모달 */}
+      <ExpandedModal
+        isOpen={expandedSection === 'why'}
+        onClose={() => setExpandedSection(null)}
+        title="왜 이 키워드가 트렌드인가?"
+        icon={<Lightbulb className="w-6 h-6" />}
+        gradientClass="from-amber-500 to-orange-600"
+      >
+        {whyData && (
+          <div className="space-y-6">
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-6">
+              <p className="text-slate-700 leading-relaxed text-base">
+                {whyData.explanation}
+              </p>
+            </div>
+            {whyData.keyFactors.length > 0 && (
+              <div>
+                <h5 className="font-bold text-slate-800 mb-4 text-lg">핵심 요인</h5>
+                <div className="grid gap-3">
+                  {whyData.keyFactors.map((factor, idx) => (
+                    <div key={idx} className="flex items-start gap-3 bg-white border border-amber-200 rounded-lg p-4">
+                      <CheckCircle className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" />
+                      <span className="text-slate-700">{factor}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </ExpandedModal>
+
+      {/* 관련 제품 확대 모달 */}
+      <ExpandedModal
+        isOpen={expandedSection === 'products'}
+        onClose={() => setExpandedSection(null)}
+        title="관련 제품"
+        icon={<ShoppingBag className="w-6 h-6" />}
+        gradientClass="from-rose-500 to-pink-600"
+      >
+        {products.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {products.map((product, idx) => (
+              <div key={idx} className="flex gap-4 bg-slate-50 border border-slate-200 rounded-xl p-4 hover:shadow-md transition-shadow">
+                <div className="w-20 h-20 flex-shrink-0 bg-gradient-to-br from-rose-100 to-pink-50 rounded-lg flex items-center justify-center overflow-hidden">
+                  {product.imageUrl ? (
+                    <img
+                      src={product.imageUrl}
+                      alt={product.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <ShoppingBag className="w-8 h-8 text-rose-300" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h5 className="text-sm font-bold text-slate-900 mb-1">{product.name}</h5>
+                  <div className="text-sm text-slate-500 mb-2">{product.brand}</div>
+                  {product.description && (
+                    <p className="text-sm text-slate-600 leading-relaxed">{product.description}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </ExpandedModal>
+
+      {/* 국가 전략 확대 모달 */}
+      <ExpandedModal
+        isOpen={expandedSection === 'strategy'}
+        onClose={() => setExpandedSection(null)}
+        title={`${countryName} 키워드 전략 분석`}
+        icon={<Globe className="w-6 h-6" />}
+        gradientClass="from-blue-500 to-indigo-600"
+      >
+        {strategyData && (
+          <div className="space-y-6">
+            {/* 시장 분석 */}
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+              <h5 className="font-bold text-blue-800 mb-3">시장 분석</h5>
+              <p className="text-slate-700 leading-relaxed">{strategyData.marketAnalysis}</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* 기회 요인 */}
+              {strategyData.opportunities.length > 0 && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5">
+                  <h5 className="font-bold text-emerald-700 mb-3 flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5" /> 기회 요인
+                  </h5>
+                  <div className="space-y-2">
+                    {strategyData.opportunities.map((item, idx) => (
+                      <div key={idx} className="flex items-start gap-2 text-sm text-slate-700">
+                        <span className="text-emerald-500">•</span>
+                        <span>{item}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 리스크 요인 */}
+              {strategyData.risks.length > 0 && (
+                <div className="bg-rose-50 border border-rose-200 rounded-xl p-5">
+                  <h5 className="font-bold text-rose-700 mb-3 flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5" /> 리스크 요인
+                  </h5>
+                  <div className="space-y-2">
+                    {strategyData.risks.map((item, idx) => (
+                      <div key={idx} className="flex items-start gap-2 text-sm text-slate-700">
+                        <span className="text-rose-500">•</span>
+                        <span>{item}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 전략 제안 */}
+            {strategyData.strategies.length > 0 && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-5">
+                <h5 className="font-bold text-blue-700 mb-3 flex items-center gap-2">
+                  <Target className="w-5 h-5" /> 전략 제안
+                </h5>
+                <div className="space-y-2">
+                  {strategyData.strategies.map((item, idx) => (
+                    <div key={idx} className="flex items-start gap-2 text-sm text-slate-700">
+                      <span className="text-blue-500">•</span>
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 액션 플랜 */}
+            {strategyData.actionPlan.length > 0 && (
+              <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl p-6 text-white">
+                <h5 className="font-bold mb-4 flex items-center gap-2">
+                  <Lightbulb className="w-5 h-5 text-yellow-200" /> 액션 플랜
+                </h5>
+                <div className="space-y-3">
+                  {strategyData.actionPlan.map((item, idx) => (
+                    <div key={idx} className="flex items-start gap-3 bg-white/10 rounded-lg p-3">
+                      <span className="w-6 h-6 bg-white/20 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
+                        {idx + 1}
+                      </span>
+                      <span className="text-white/95">{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </ExpandedModal>
 
       {/* 접기 버튼 */}
       <div className="flex justify-center pt-2">

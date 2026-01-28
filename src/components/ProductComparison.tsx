@@ -171,17 +171,17 @@ ${result.agentInsight.points.map((p: string) => `- ${p}`).join('\n')}
             animate={{ opacity: 1, x: 0 }}
             className="text-center"
           >
-            <div className="w-56 h-56 rounded-2xl overflow-hidden border-4 border-blue-400 shadow-xl mb-2 mx-auto bg-white">
+            <div className="w-[22rem] h-[22rem] rounded-2xl overflow-hidden border-4 border-blue-400 shadow-xl mb-3 mx-auto bg-white">
               {overseasProduct.image ? (
                 <img src={overseasProduct.image} alt={overseasProduct.name} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-blue-100">
-                  <span className="text-7xl">🌍</span>
+                  <span className="text-8xl">🌍</span>
                 </div>
               )}
             </div>
-            <p className="text-blue-600 font-semibold text-sm">{overseasProduct.brand}</p>
-            <p className="text-slate-700 text-xs mt-0.5 max-w-[140px] truncate">{overseasProduct.name}</p>
+            <p className="text-blue-600 font-bold text-base">{overseasProduct.brand}</p>
+            <p className="text-slate-700 text-sm mt-1 max-w-[300px] truncate">{overseasProduct.name}</p>
           </motion.div>
 
           {/* VS 표시 */}
@@ -191,8 +191,8 @@ ${result.agentInsight.points.map((p: string) => `- ${p}`).join('\n')}
             transition={{ delay: 0.2 }}
             className="flex flex-col items-center"
           >
-            <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-rose-500 rounded-full flex items-center justify-center shadow-lg">
-              <span className="text-white font-bold text-xs">VS</span>
+            <div className="w-16 h-16 bg-gradient-to-br from-violet-500 to-rose-500 rounded-full flex items-center justify-center shadow-xl">
+              <span className="text-white font-bold text-lg">VS</span>
             </div>
           </motion.div>
 
@@ -202,17 +202,17 @@ ${result.agentInsight.points.map((p: string) => `- ${p}`).join('\n')}
             animate={{ opacity: 1, x: 0 }}
             className="text-center"
           >
-            <div className="w-56 h-56 rounded-2xl overflow-hidden border-4 border-rose-400 shadow-xl mb-2 mx-auto bg-white">
+            <div className="w-[22rem] h-[22rem] rounded-2xl overflow-hidden border-4 border-rose-400 shadow-xl mb-3 mx-auto bg-white">
               {domesticProduct.image ? (
                 <img src={domesticProduct.image} alt={domesticProduct.name} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-rose-100">
-                  <span className="text-7xl">🇰🇷</span>
+                  <span className="text-8xl">🇰🇷</span>
                 </div>
               )}
             </div>
-            <p className="text-rose-600 font-semibold text-sm">{domesticProduct.brand}</p>
-            <p className="text-slate-700 text-xs mt-0.5 max-w-[140px] truncate">{domesticProduct.name}</p>
+            <p className="text-rose-600 font-bold text-base">{domesticProduct.brand}</p>
+            <p className="text-slate-700 text-sm mt-1 max-w-[300px] truncate">{domesticProduct.name}</p>
           </motion.div>
         </div>
 
@@ -376,11 +376,11 @@ ${result.agentInsight.points.map((p: string) => `- ${p}`).join('\n')}
             <img
               src={comparisonResult.overseasImage}
               alt={overseasProduct.name}
-              className="w-44 h-44 object-cover rounded-lg mb-3 border border-blue-200"
+              className="w-72 h-72 object-cover rounded-xl mb-4 border-2 border-blue-200 shadow-md"
             />
           ) : (
-            <div className="w-44 h-44 bg-blue-200 rounded-lg mb-3 flex items-center justify-center">
-              <span className="text-blue-600 text-4xl">🌍</span>
+            <div className="w-72 h-72 bg-blue-200 rounded-xl mb-4 flex items-center justify-center">
+              <span className="text-blue-600 text-6xl">🌍</span>
             </div>
           )}
           <p className="text-slate-800 leading-relaxed text-sm">
@@ -398,11 +398,11 @@ ${result.agentInsight.points.map((p: string) => `- ${p}`).join('\n')}
             <img
               src={comparisonResult.domesticImage}
               alt={domesticProduct.name}
-              className="w-44 h-44 object-cover rounded-lg mb-3 border border-rose-200"
+              className="w-72 h-72 object-cover rounded-xl mb-4 border-2 border-rose-200 shadow-md"
             />
           ) : (
-            <div className="w-44 h-44 bg-rose-200 rounded-lg mb-3 flex items-center justify-center">
-              <span className="text-rose-600 text-4xl">🇰🇷</span>
+            <div className="w-72 h-72 bg-rose-200 rounded-xl mb-4 flex items-center justify-center">
+              <span className="text-rose-600 text-6xl">🇰🇷</span>
             </div>
           )}
           <p className="text-slate-800 leading-relaxed text-sm">

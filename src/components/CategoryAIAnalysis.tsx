@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Lightbulb, BarChart3, Globe, ChevronDown, AlertTriangle, CheckCircle, Target } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
@@ -7,6 +7,7 @@ import {
   fetchLLMCategoryPrediction,
   fetchLLMCategoryStrategy,
   fetchLeaderboard,
+  saveInsight,
   CategoryTrendData,
   CategoryPredictionData,
   CategoryStrategyData,
@@ -59,6 +60,14 @@ export default function CategoryAIAnalysis({
   const [strategyLoading, setStrategyLoading] = useState(true);
   const [strategyError, setStrategyError] = useState('');
 
+  // 중복 저장 방지를 위한 ref
+  const savedInsightsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    // 카테고리/국가 변경 시 저장 기록 초기화
+    savedInsightsRef.current = new Set();
+  }, [country, category]);
+
   useEffect(() => {
     const loadAll = async () => {
       // First fetch leaderboard to get top keywords for all 3 types
@@ -78,6 +87,11 @@ export default function CategoryAIAnalysis({
         ? Math.round(topKeywords.reduce((sum, k) => sum + k.score, 0) / topKeywords.length)
         : 70;
 
+      const countryNames: Record<string, string> = {
+        usa: '미국', japan: '일본', singapore: '싱가포르',
+        malaysia: '말레이시아', indonesia: '인도네시아',
+      };
+
       // Section 1: Category trend analysis (GPU0)
       fetchLLMCategoryTrend({
         country,
@@ -86,6 +100,17 @@ export default function CategoryAIAnalysis({
       }).then(data => {
         if (data.success) {
           setTrendData(data);
+          // 인사이트 자동 저장 - 카테고리 트렌드 분석 (중복 방지)
+          const insightKey = `trend-${country}-${category}`;
+          if (!savedInsightsRef.current.has(insightKey)) {
+            savedInsightsRef.current.add(insightKey);
+            saveInsight(
+              'category-trend',
+              `${countryNames[country] || country} ${category} 트렌드 분석`,
+              `${data.explanation}\n\n핵심 요인: ${data.keyFactors.join(', ')}`,
+              { country, category }
+            );
+          }
         } else {
           setTrendError(data.error || 'AI 분석 서버 응답 오류');
         }
@@ -104,6 +129,17 @@ export default function CategoryAIAnalysis({
       }).then(data => {
         if (data.success) {
           setPredictionData(data);
+          // 인사이트 자동 저장 - 카테고리 예측 (중복 방지)
+          const insightKey = `prediction-${country}-${category}`;
+          if (!savedInsightsRef.current.has(insightKey)) {
+            savedInsightsRef.current.add(insightKey);
+            saveInsight(
+              'category-prediction',
+              `${countryNames[country] || country} ${category} 6-12개월 예측`,
+              `현재: ${data.currentPhase} → 6개월: ${data.prediction6m} → 12개월: ${data.prediction12m}\n\n${data.explanation}`,
+              { country, category, currentPhase: data.currentPhase }
+            );
+          }
         } else {
           setPredictionError(data.error || 'AI 예측 서버 응답 오류');
         }
@@ -122,6 +158,17 @@ export default function CategoryAIAnalysis({
       }).then(data => {
         if (data.success) {
           setStrategyData(data);
+          // 인사이트 자동 저장 - 카테고리 전략 (중복 방지)
+          const insightKey = `strategy-${country}-${category}`;
+          if (!savedInsightsRef.current.has(insightKey)) {
+            savedInsightsRef.current.add(insightKey);
+            saveInsight(
+              'category-strategy',
+              `${countryNames[country] || country} ${category} 시장 전략`,
+              `시장분석: ${data.marketAnalysis}\n\n기회: ${data.opportunities.join(', ')}\n\n전략: ${data.strategies.join(', ')}`,
+              { country, category }
+            );
+          }
         } else {
           setStrategyError(data.error || '전략 분석 서버 응답 오류');
         }

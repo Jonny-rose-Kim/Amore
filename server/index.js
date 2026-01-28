@@ -4,6 +4,12 @@ import dotenv from 'dotenv';
 import connectDB from './db.js';
 import PDFDocument from 'pdfkit';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// ES Module에서 __dirname 설정
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
@@ -519,8 +525,9 @@ app.post('/api/insights/export/pdf', async (req, res) => {
       res.send(pdfBuffer);
     });
 
-    // 한글 폰트 등록
-    const fontPath = new URL('./fonts/NotoSansKR-Regular.ttf', import.meta.url).pathname;
+    // 한글 폰트 등록 (절대 경로 사용)
+    const fontPath = path.join(__dirname, 'fonts', 'NotoSansKR-Regular.ttf');
+    console.log('PDF Font path:', fontPath);
     doc.registerFont('NotoSansKR', fontPath);
     doc.font('NotoSansKR');
 

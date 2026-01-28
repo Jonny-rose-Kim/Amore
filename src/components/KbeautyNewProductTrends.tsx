@@ -8,6 +8,8 @@ import {
 import {
   fetchKbeautyTrendsData,
   fetchKbeautyTrendsAnalysis,
+  fetchKbeautyProductsByIngredient,
+  fetchKbeautyProductsByConcern,
   KbeautyProduct,
   KbeautyTrendsDataResponse,
   KbeautyTrendsAnalysisResponse,
@@ -580,7 +582,7 @@ export default function KbeautyNewProductTrends({ category = 'All', onClose }: K
   const [ingredientProducts, setIngredientProducts] = useState<KbeautyProduct[]>([]);
   const [ingredientLoading, setIngredientLoading] = useState(false);
 
-  // 성분 선택 시 API에서 제품 가져오기
+  // 성분 선택 시 API에서 제품 가져오기 (K-Beauty Atlas 서버)
   const handleIngredientSelect = async (ingredientName: string | null) => {
     setSelectedIngredient(ingredientName);
 
@@ -591,10 +593,10 @@ export default function KbeautyNewProductTrends({ category = 'All', onClose }: K
 
     setIngredientLoading(true);
     try {
-      const response = await fetch(`/api/real/kbeauty/products-by-ingredient?ingredient=${encodeURIComponent(ingredientName)}`);
-      if (response.ok) {
-        const data = await response.json();
-        setIngredientProducts(data.products || []);
+      // K-Beauty Atlas 서버(5002)에서 성분별 제품 조회
+      const result = await fetchKbeautyProductsByIngredient(ingredientName);
+      if (result && result.products.length > 0) {
+        setIngredientProducts(result.products);
       } else {
         // API 실패 시 로컬 데이터로 폴백
         const localProducts = trendsData?.sampleNewProducts.filter(p =>
@@ -604,7 +606,11 @@ export default function KbeautyNewProductTrends({ category = 'All', onClose }: K
       }
     } catch (error) {
       console.error('성분별 제품 조회 오류:', error);
-      setIngredientProducts([]);
+      // 폴백: 로컬 데이터 사용
+      const localProducts = trendsData?.sampleNewProducts.filter(p =>
+        p.keyIngredients?.some(ing => ing.toLowerCase().includes(ingredientName.toLowerCase()))
+      ) || [];
+      setIngredientProducts(localProducts);
     } finally {
       setIngredientLoading(false);
     }

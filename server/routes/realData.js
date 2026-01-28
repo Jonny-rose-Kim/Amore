@@ -567,10 +567,14 @@ router.get('/combinations/review-keywords', async (req, res) => {
  * GET /api/real/combinations/reviews-by-type
  *
  * review_sentences 컬렉션에서 해당 유형의 문장만 반환
+ * - neutral 제외
+ * - positive: rating 5만
+ * - negative: rating 1만
+ * - 중복 내용 제거
  */
 router.get('/combinations/reviews-by-type', async (req, res) => {
   try {
-    const { country = 'usa', keywords, reviewType, sentiment = 'positive', limit = 10 } = req.query;
+    const { country = 'usa', keywords, reviewType, sentiment = 'positive', limit = 15 } = req.query;
 
     if (!req.db) {
       return res.status(503).json({ error: 'Database not connected' });
@@ -579,14 +583,26 @@ router.get('/combinations/reviews-by-type', async (req, res) => {
       return res.status(400).json({ error: 'reviewType parameter required' });
     }
 
+    // neutral이면 빈 결과 반환
+    if (sentiment === 'neutral') {
+      return res.json({ country, reviewType, sentiment, reviews: [] });
+    }
+
     const db = req.db;
 
-    // 기본 쿼리: reviewType과 sentiment로 필터
+    // 기본 쿼리: reviewType과 sentiment로 필터 + rating 필터
     let query = {
       country,
       reviewType,
       sentiment
     };
+
+    // sentiment에 따라 rating 필터 적용
+    if (sentiment === 'positive') {
+      query.rating = 5;  // 긍정은 rating 5만
+    } else if (sentiment === 'negative') {
+      query.rating = 1;  // 부정은 rating 1만
+    }
 
     // keywords가 있으면 content나 productName에서 검색 (선택적)
     if (keywords) {
@@ -597,36 +613,50 @@ router.get('/combinations/reviews-by-type', async (req, res) => {
       ];
     }
 
-    // review_sentences에서 문장 조회
+    // 더 많이 가져와서 중복 제거 후 limit 적용
     let sentences = await db.collection('review_sentences')
       .find(query)
       .sort({ createdAt: -1 })
-      .limit(parseInt(limit))
+      .limit(parseInt(limit) * 3)
       .toArray();
 
-    // 키워드 매칭 결과가 없으면 reviewType만으로 재검색
+    // 키워드 매칭 결과가 없으면 reviewType만으로 재검색 (rating 필터 유지)
     if (sentences.length === 0 && keywords) {
+      const fallbackQuery = { country, reviewType, sentiment };
+      if (sentiment === 'positive') fallbackQuery.rating = 5;
+      else if (sentiment === 'negative') fallbackQuery.rating = 1;
+
       sentences = await db.collection('review_sentences')
-        .find({ country, reviewType, sentiment })
+        .find(fallbackQuery)
         .sort({ createdAt: -1 })
-        .limit(parseInt(limit))
+        .limit(parseInt(limit) * 3)
         .toArray();
     }
 
-    // 프론트엔드 필드 매핑
-    const reviews = sentences.map(s => ({
-      keyword: s.reviewType,
-      sentiment: s.sentiment,
-      content: s.content,
-      contentKr: s.contentKr,  // 한국어 번역
-      product: s.productName || 'Unknown Product',
-      brand: s.brand || '',
-      rating: s.rating || 0,
-      postedAt: s.createdAt ? s.createdAt.toISOString() : new Date().toISOString(),
-      source: s.source || 'Amazon'
-    }));
+    // 중복 내용 제거 (content 앞 100자 기준)
+    const seenContents = new Set();
+    const uniqueReviews = [];
 
-    res.json({ country, reviewType, sentiment, reviews });
+    for (const s of sentences) {
+      const contentKey = (s.content || '').substring(0, 100).toLowerCase().trim();
+      if (contentKey && !seenContents.has(contentKey)) {
+        seenContents.add(contentKey);
+        uniqueReviews.push({
+          keyword: s.reviewType,
+          sentiment: s.sentiment,
+          content: s.content,
+          contentKr: s.contentKr,
+          product: s.productName || 'Unknown Product',
+          brand: s.brand || '',
+          rating: s.rating || 0,
+          postedAt: s.createdAt ? s.createdAt.toISOString() : new Date().toISOString(),
+          source: s.source || 'Amazon'
+        });
+      }
+      if (uniqueReviews.length >= parseInt(limit)) break;
+    }
+
+    res.json({ country, reviewType, sentiment, reviews: uniqueReviews });
   } catch (error) {
     console.error('리뷰 유형별 조회 오류:', error);
     res.status(500).json({ error: error.message });
@@ -669,30 +699,60 @@ router.get('/reviews/sentiment', async (req, res) => {
 /**
  * 리뷰 상세 목록 (원본 리뷰 텍스트)
  * GET /api/real/reviews/details
+ * - neutral 제외
+ * - positive: rating 5만
+ * - negative: rating 1만
+ * - 중복 내용 제거
  */
 router.get('/reviews/details', async (req, res) => {
   try {
-    const { country = 'usa', keyword, sentiment, limit = 10 } = req.query;
+    const { country = 'usa', keyword, sentiment, limit = 15 } = req.query;
     if (!req.db) return res.status(503).json({ error: 'Database not connected' });
     const db = req.db;
 
+    // neutral 제외, sentiment에 따라 rating 필터링
     const matchQuery = { country };
     if (keyword) matchQuery.keyword = keyword;
-    if (sentiment) matchQuery.sentiment = sentiment;
 
+    // sentiment별 rating 필터 적용
+    if (sentiment === 'positive') {
+      matchQuery.sentiment = 'positive';
+      matchQuery.rating = 5;  // 긍정은 rating 5만
+    } else if (sentiment === 'negative') {
+      matchQuery.sentiment = 'negative';
+      matchQuery.rating = 1;  // 부정은 rating 1만
+    } else if (sentiment) {
+      // neutral이면 빈 결과 반환
+      if (sentiment === 'neutral') {
+        return res.json({ country, keyword, sentiment, reviews: [] });
+      }
+      matchQuery.sentiment = sentiment;
+    }
+
+    // 더 많이 가져와서 중복 제거 후 limit 적용
     const rawReviews = await db.collection('raw_reviews')
       .find(matchQuery)
       .sort({ postedAt: -1 })
-      .limit(parseInt(limit))
+      .limit(parseInt(limit) * 3)  // 중복 제거를 위해 3배로 가져옴
       .toArray();
 
-    // 프론트엔드 필드 매핑 (productName -> product)
-    const reviews = rawReviews.map(r => ({
-      ...r,
-      product: r.productName || r.product || 'Unknown Product',
-    }));
+    // 중복 내용 제거 (text 앞 100자 기준)
+    const seenTexts = new Set();
+    const uniqueReviews = [];
 
-    res.json({ country, keyword, sentiment, reviews });
+    for (const r of rawReviews) {
+      const textKey = (r.text || '').substring(0, 100).toLowerCase().trim();
+      if (textKey && !seenTexts.has(textKey)) {
+        seenTexts.add(textKey);
+        uniqueReviews.push({
+          ...r,
+          product: r.productName || r.product || 'Unknown Product',
+        });
+      }
+      if (uniqueReviews.length >= parseInt(limit)) break;
+    }
+
+    res.json({ country, keyword, sentiment, reviews: uniqueReviews });
   } catch (error) {
     console.error('리뷰 상세 조회 오류:', error);
     res.status(500).json({ error: error.message });

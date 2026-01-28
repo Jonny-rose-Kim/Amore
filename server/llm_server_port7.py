@@ -597,9 +597,8 @@ def rag_insight():
         else:
             target_desc = f'{category} 카테고리 전체 (주요 키워드: {keywords_text})'
 
-        # 목적별 프롬프트
+        # 목적별 프롬프트 - Query 1: 섹션 1, 2, 3만 생성 (모든 유형 동일 구조)
         if insight_type == "marketing":
-            # 마케팅: Query 1 - 섹션 1, 2, 3만 생성
             purpose_instruction = """다음 형식으로 마케팅 캠페인 인사이트를 작성해주세요. 반드시 아래 3개 섹션을 포함해야 합니다:
 
 **1. 타겟 오디언스 분석**
@@ -617,44 +616,38 @@ def rag_insight():
 위 3개 섹션만 작성하세요. 각 섹션 제목과 하위 카테고리는 반드시 **굵은 글씨**로 표시하세요."""
 
         elif insight_type == "npd":
-            purpose_instruction = """다음 형식으로 신제품 기획 인사이트를 작성해주세요:
+            purpose_instruction = """다음 형식으로 신제품 기획(BM) 인사이트를 작성해주세요. 반드시 아래 3개 섹션을 포함해야 합니다:
 
-Agent Insight
+**1. 성분 배합 제안**
+• **핵심 성분 조합:** 참고 사례의 과학적 배합 인사이트를 바탕으로, 현재 트렌드에 맞는 유망 핵심 성분 조합
+• **과학적 근거:** 성분 조합의 시너지 효과와 피부 과학적 메커니즘 설명
 
-1. 성분 배합 제안
-참고 사례의 과학적 배합 인사이트를 바탕으로, 현재 트렌드에 맞는 유망 핵심 성분 조합과 그 과학적 근거를 제안해주세요.
+**2. 제형 컨셉 및 텍스처**
+• **차별화 제형:** 참고 사례의 제형 혁신을 바탕으로, 소비자 선호도에 맞는 차별화된 제형/텍스처
+• **전달 시스템:** 성분 효능 극대화를 위한 혁신적 전달 기술 제안
 
-2. 제형 컨셉 및 텍스처
-참고 사례의 제형 혁신을 바탕으로, 소비자 선호도에 맞는 차별화된 제형/텍스처와 전달 시스템을 제안해주세요.
+**3. USP 및 포지셔닝**
+• **차별화 포인트:** 참고 사례의 시장 반응을 바탕으로, 경쟁 제품 대비 명확한 차별화 요소
+• **시장 포지셔닝:** 타겟 가격대, 프리미엄 vs 매스 전략, 타겟 유통 채널
 
-3. USP 및 포지셔닝
-참고 사례의 시장 반응을 바탕으로, 경쟁 제품 대비 차별화 포인트와 시장 포지셔닝 전략을 제안해주세요.
+위 3개 섹션만 작성하세요. 각 섹션 제목과 하위 카테고리는 반드시 **굵은 글씨**로 표시하세요."""
 
-Market Precedent
-참고 사례에서 도출된 제형/성분 혁신 선례를 불릿(•)으로 정리하되, 과학적 작용 원리를 포함해주세요.
+        else:  # overseas
+            purpose_instruction = """다음 형식으로 해외 진출 전략 인사이트를 작성해주세요. 반드시 아래 3개 섹션을 포함해야 합니다:
 
-Agent Conclusion
-종합적인 신제품 기획 방향을 2-3문장으로 정리해주세요."""
+**1. 시장 진입 전략**
+• **진입 방식:** 참고 사례의 실제 시장 데이터를 바탕으로, 해당 시장의 최적 진입 전략(유통, 타이밍)
+• **포지셔닝:** 해당 국가 시장에서의 최적 브랜드/제품 포지셔닝 방향
 
-        else:
-            purpose_instruction = """다음 형식으로 해외 진출 전략 인사이트를 작성해주세요:
+**2. 현지 소비자 분석**
+• **타겟 선호도:** 참고 사례의 소비자 인사이트를 바탕으로, 타겟 시장의 제품/성분 선호도
+• **문화적 특성:** 구매 패턴, 뷰티 루틴, 문화적 금기사항 등 고려 사항
 
-Agent Insight
+**3. 유통 및 가격 전략**
+• **유통 채널:** 참고 사례의 성공/실패를 바탕으로, 적합한 유통 채널 (온라인/오프라인/멀티)
+• **가격 포지셔닝:** 현지 시장 대비 최적 가격대와 구체적 가격 범위 제안
 
-1. 시장 진입 전략
-참고 사례의 실제 시장 데이터를 바탕으로, 해당 시장의 최적 진입 전략(유통, 타이밍, 포지셔닝)을 제안해주세요.
-
-2. 현지 소비자 분석
-참고 사례의 소비자 인사이트를 바탕으로, 타겟 시장의 선호도, 구매 패턴, 문화적 특성을 분석해주세요.
-
-3. 유통 및 가격 전략
-참고 사례의 성공/실패를 바탕으로, 적합한 유통 채널과 가격 포지셔닝을 구체적 수치와 함께 제안해주세요.
-
-Market Precedent
-참고 사례에서 도출된 해외 진출 선례와 성공/실패 요인을 불릿(•)으로 정리하되, 구체적 시장 수치를 포함해주세요.
-
-Agent Conclusion
-종합적인 해외 진출 추천 방향을 2-3문장으로 정리해주세요."""
+위 3개 섹션만 작성하세요. 각 섹션 제목과 하위 카테고리는 반드시 **굵은 글씨**로 표시하세요."""
 
         # 리뷰 데이터 섹션 구성
         review_section = ""
@@ -684,12 +677,32 @@ Agent Conclusion
 
         content = clean_text(response) if response else f"{country_name} {category} 시장에 대한 {type_name} 인사이트입니다."
 
-        # ===== 마케팅 타입: Query 2 - 과거 성공 사례 (4번만) =====
+        # ===== 모든 타입: Query 2 - 과거 성공 사례 분석 (4번) =====
         query2_section = ""
-        if insight_type == "marketing" and rag_sources:
-            print("  [Marketing] Query 2: Generating past success cases...")
-            query2_prompt = f"""당신은 K-뷰티 마케팅 전략 전문가입니다.
-아래 실제 마케팅 성공 사례들을 분석해주세요.
+        if rag_sources:
+            print(f"  [{insight_type.upper()}] Query 2: Generating past success cases...")
+
+            # 타입별 사례 분석 관점 설정
+            if insight_type == "marketing":
+                case_focus = "마케팅 성공 전략"
+                case_aspects = """• <성과지표> 해당 사례의 구체적인 성공 수치 (매출 증가율, 판매량, 인지도 상승 등)
+• <핵심전략> 이 사례에서 배울 수 있는 핵심 마케팅 전략
+• <적용방안> {target_desc}에 이 전략을 어떻게 적용할 수 있는지"""
+            elif insight_type == "npd":
+                case_focus = "제품 혁신 사례"
+                case_aspects = """• <성분혁신> 해당 제품의 핵심 성분 조합과 과학적 효능
+• <제형기술> 이 사례에서 사용된 혁신적 제형/텍스처 기술
+• <적용방안> {target_desc} 신제품 개발에 이 혁신을 어떻게 적용할 수 있는지"""
+            else:  # overseas
+                case_focus = "해외 진출 사례"
+                case_aspects = """• <진출성과> 해당 사례의 해외 시장 진출 성과 (매출, 점유율, 인지도 등)
+• <성공요인> 이 사례의 현지화/진입 전략 핵심 성공 요인
+• <적용방안> {target_desc}의 해외 진출에 이 전략을 어떻게 적용할 수 있는지"""
+
+            case_aspects = case_aspects.format(target_desc=target_desc)
+
+            query2_prompt = f"""당신은 K-뷰티 {type_name} 전문가입니다.
+아래 실제 {case_focus}들을 분석해주세요.
 
 [분석 대상]
 - 국가: {country_name}
@@ -703,40 +716,58 @@ Agent Conclusion
 **4. 과거 성공 사례 분석**
 
 **4-1. [브랜드명 - 제품명]**
-• <성과지표> 해당 사례의 구체적인 성공 수치 (매출 증가율, 판매량, 인지도 상승 등)
-• <핵심전략> 이 사례에서 배울 수 있는 핵심 성공 전략
-• <적용방안> {target_desc}에 이 전략을 어떻게 적용할 수 있는지
+{case_aspects}
 
 **4-2. [브랜드명 - 제품명]**
-• <성과지표> 해당 사례의 구체적인 성공 수치
-• <핵심전략> 이 사례에서 배울 수 있는 핵심 성공 전략
-• <적용방안> {target_desc}에 이 전략을 어떻게 적용할 수 있는지
+{case_aspects}
 
 **4-3. [브랜드명 - 제품명]**
-• <성과지표> 해당 사례의 구체적인 성공 수치
-• <핵심전략> 이 사례에서 배울 수 있는 핵심 성공 전략
-• <적용방안> {target_desc}에 이 전략을 어떻게 적용할 수 있는지
+{case_aspects}
 
-반드시 위 형식을 준수하세요. 4-1, 4-2, 4-3 제목은 **굵은 글씨**로 표시하고, 하위 항목은 <성과지표>, <핵심전략>, <적용방안> 형식으로 작성하세요.
+반드시 위 형식을 준수하세요. 4-1, 4-2, 4-3 제목은 **굵은 글씨**로 표시하세요.
 Agent Insight는 작성하지 마세요."""
 
             query2_response = generate_response(query2_prompt, max_new_tokens=800)
             if query2_response:
-                # 마크다운 유지 (** 굵은글씨, <> 구분자)
                 query2_section = "\n\n" + query2_response.strip()
-                print("  [Marketing] Query 2 completed successfully")
+                print(f"  [{insight_type.upper()}] Query 2 completed successfully")
 
-        # ===== 마케팅 타입: Query 3 - Agent Insight (종합 전략 요약) =====
+        # ===== 모든 타입: Query 3 - Agent Insight (종합 전략 요약) =====
         agent_insight_content = ""
+        print(f"  [{insight_type.upper()}] Query 3: Generating Agent Insight summary...", flush=True)
+
+        # 이전 쿼리 결과를 캐시로 사용 (1~4번 내용)
+        cached_analysis = content.strip()
+        if query2_section:
+            cached_analysis += query2_section
+
+        # 타입별 Agent Insight 프롬프트 설정
         if insight_type == "marketing":
-            print("  [Marketing] Query 3: Generating Agent Insight summary...", flush=True)
+            insight_intro = f"{country_name} {category} 시장에서 {target_desc}을 위한 최종 마케팅 전략입니다."
+            insight_items = """**핵심 타겟** 집중해야 할 타겟층 (1문장)
+**추천 채널** 최우선 마케팅 채널 (1문장)
+**핵심 메시지** 캠페인 핵심 메시지/컨셉 (1문장)
+**벤치마크** 과거 성공 사례에서 배운 핵심 포인트 (1문장)
+**실행 액션** 즉시 실행 가능한 액션 (1문장)"""
+            summary_context = "타겟 오디언스, 채널 전략, 핵심 메시지, 과거 성공 사례"
+        elif insight_type == "npd":
+            insight_intro = f"{country_name} {category} 시장에서 {target_desc}을 위한 신제품 기획 방향입니다."
+            insight_items = """**핵심 성분** 최우선 적용할 성분 조합 (1문장)
+**제형 컨셉** 차별화된 제형/텍스처 방향 (1문장)
+**USP** 경쟁 대비 핵심 차별화 포인트 (1문장)
+**벤치마크** 과거 혁신 사례에서 배운 핵심 포인트 (1문장)
+**실행 액션** 즉시 실행 가능한 R&D 액션 (1문장)"""
+            summary_context = "성분 배합, 제형 컨셉, USP 포지셔닝, 과거 혁신 사례"
+        else:  # overseas
+            insight_intro = f"{country_name} {category} 시장에서 {target_desc}을 위한 해외 진출 전략입니다."
+            insight_items = """**진입 전략** 최적 시장 진입 방식 (1문장)
+**타겟 소비자** 집중해야 할 현지 타겟층 (1문장)
+**유통 채널** 최우선 유통 채널 전략 (1문장)
+**벤치마크** 과거 진출 사례에서 배운 핵심 포인트 (1문장)
+**실행 액션** 즉시 실행 가능한 현지화 액션 (1문장)"""
+            summary_context = "시장 진입, 현지 소비자, 유통/가격 전략, 과거 진출 사례"
 
-            # 이전 쿼리 결과를 캐시로 사용 (1~4번 내용)
-            cached_analysis = content.strip()
-            if query2_section:
-                cached_analysis += query2_section
-
-            query3_prompt = f"""당신은 K-뷰티 마케팅 전략 수석 컨설턴트입니다.
+        query3_prompt = f"""당신은 K-뷰티 {type_name} 수석 컨설턴트입니다.
 
 [분석 대상]
 - 국가: {country_name}
@@ -746,42 +777,30 @@ Agent Insight는 작성하지 마세요."""
 [이전 분석 내용 요약]
 {cached_analysis}
 
-위 분석 내용(타겟 오디언스, 채널 전략, 핵심 메시지, 과거 성공 사례)을 종합하여 최종 마케팅 전략을 간결하게 요약해주세요.
+위 분석 내용({summary_context})을 종합하여 최종 전략을 간결하게 요약해주세요.
 
 다음 형식으로 정확히 작성해주세요 (5-6문장 이내로 핵심만):
 
-{country_name} {category} 시장에서 {target_desc}을 위한 최종 마케팅 전략입니다.
+{insight_intro}
 
-**핵심 타겟** 집중해야 할 타겟층 (1문장)
-**추천 채널** 최우선 마케팅 채널 (1문장)
-**핵심 메시지** 캠페인 핵심 메시지/컨셉 (1문장)
-**벤치마크** 과거 성공 사례에서 배운 핵심 포인트 (1문장)
-**실행 액션** 즉시 실행 가능한 액션 (1문장)
+{insight_items}
 
 간결하고 실행 가능한 형태로 작성하세요. 각 항목은 **항목명** 형식으로 시작하고 콜론(:)은 넣지 마세요."""
 
-            query3_response = generate_response(query3_prompt, max_new_tokens=400)
-            if query3_response:
-                # Agent Insight는 마크다운(**굵은글씨**) 유지 - 프론트엔드에서 파싱함
-                agent_insight_content = query3_response.strip()
-                print(f"  [Marketing] Query 3 (Agent Insight) completed: {len(agent_insight_content)} chars", flush=True)
-            else:
-                print("  [Marketing] Query 3 FAILED - no response!", flush=True)
-
-        # 콘텐츠 조합 (Agent Insight는 별도 필드로 반환)
-        if insight_type == "marketing":
-            # Query 1 (1, 2, 3번) + Query 2 (4번) - Agent Insight는 별도
-            content = content.strip() + query2_section
+        query3_response = generate_response(query3_prompt, max_new_tokens=400)
+        if query3_response:
+            agent_insight_content = query3_response.strip()
+            print(f"  [{insight_type.upper()}] Query 3 (Agent Insight) completed: {len(agent_insight_content)} chars", flush=True)
         else:
-            if "Agent Insight" not in content:
-                content = f"Agent Insight\n\n{content}"
-            if "Agent Conclusion" not in content:
-                content += "\n\nAgent Conclusion\n\n위 분석을 종합하면, 현재 시장 트렌드와 실제 사례를 기반으로 전략적 접근이 필요합니다."
+            print(f"  [{insight_type.upper()}] Query 3 FAILED - no response!", flush=True)
+
+        # 콘텐츠 조합 - 모든 유형에서 동일한 구조: Query 1(1,2,3번) + Query 2(4번) + Agent Insight는 별도
+        content = content.strip() + query2_section
 
         return jsonify({
             "success": True,
             "content": content,
-            "agentInsight": agent_insight_content if insight_type == "marketing" else "",
+            "agentInsight": agent_insight_content,  # 모든 유형에서 Agent Insight 반환
             "scope": scope,
             "type": insight_type,
             "keyword": keyword,
@@ -848,18 +867,33 @@ def plc_prediction():
 [6개월예측] 도입기/성장기/성숙기/쇠퇴기 중 하나
 [12개월예측] 도입기/성장기/성숙기/쇠퇴기 중 하나
 [월별점수] 현재부터 12개월 후까지 13개의 예측 점수를 쉼표로 구분 (0-100 범위)
-[분석] 3-5문장으로 다음 포함: (a)성장/지속 드라이버 (b)하락/소멸 리스크 (c)조건부 시나리오"""
 
-        response = generate_response(prompt, max_new_tokens=600)
+[성장드라이버]
+• 현재 성장을 이끄는 핵심 요인 1
+• 현재 성장을 이끄는 핵심 요인 2
+
+[하락리스크]
+• 잠재적 하락/소멸 리스크 1
+• 잠재적 하락/소멸 리스크 2
+
+[시나리오]
+• 긍정 시나리오: 조건 충족 시 예상 결과
+• 부정 시나리오: 리스크 발생 시 예상 결과
+
+[종합의견] 1-2문장으로 최종 종합 의견"""
+
+        response = generate_response(prompt, max_new_tokens=800)
 
         current_phase = "성장기"
         prediction_6m = "성숙기"
         prediction_12m = "성숙기"
         monthly_scores = []
-        explanation = ""
+        growth_drivers = []
+        decline_risks = []
+        scenarios = []
+        summary = ""
 
         lines = response.split("\n")
-        explanation_lines = []
         current_section = None
 
         for line in lines:
@@ -886,21 +920,36 @@ def plc_prediction():
                 numbers = re.findall(r'\d+(?:\.\d+)?', line.split("]")[-1] if "]" in line else line.split(":")[-1])
                 monthly_scores = [min(100, max(0, float(n))) for n in numbers[:13]]
                 current_section = "scores"
-            elif any(kw in line for kw in ["[분석]", "분석:", "## 분석"]):
-                current_section = "explanation"
-                rest = re.sub(r'^\[분석\]|^분석:|^## 분석', '', line).strip()
+            elif any(kw in line for kw in ["[성장드라이버]", "성장드라이버:", "성장 드라이버"]):
+                current_section = "drivers"
+            elif any(kw in line for kw in ["[하락리스크]", "하락리스크:", "하락 리스크"]):
+                current_section = "risks"
+            elif any(kw in line for kw in ["[시나리오]", "시나리오:"]):
+                current_section = "scenarios"
+            elif any(kw in line for kw in ["[종합의견]", "종합의견:", "종합 의견"]):
+                current_section = "summary"
+                rest = re.sub(r'^\[종합의견\]|^종합의견:|^\[종합 의견\]', '', line).strip()
                 if rest and len(rest) > 5:
-                    explanation_lines.append(rest)
+                    summary = rest
             elif current_section == "scores" and not monthly_scores:
                 numbers = re.findall(r'\d+(?:\.\d+)?', line)
                 if numbers:
                     monthly_scores = [min(100, max(0, float(n))) for n in numbers[:13]]
-            elif current_section == "explanation":
-                clean_line = line.lstrip("0123456789.-•→·)#* ").strip()
+            elif current_section == "drivers":
+                clean_line = line.lstrip("•-·* ").strip()
                 if clean_line and len(clean_line) > 5:
-                    explanation_lines.append(clean_line)
-
-        explanation = clean_text(" ".join(explanation_lines)) if explanation_lines else ""
+                    growth_drivers.append(clean_line)
+            elif current_section == "risks":
+                clean_line = line.lstrip("•-·* ").strip()
+                if clean_line and len(clean_line) > 5:
+                    decline_risks.append(clean_line)
+            elif current_section == "scenarios":
+                clean_line = line.lstrip("•-·* ").strip()
+                if clean_line and len(clean_line) > 5:
+                    scenarios.append(clean_line)
+            elif current_section == "summary":
+                if line and len(line) > 5:
+                    summary += " " + line
 
         if len(monthly_scores) < 13:
             base = current_score
@@ -919,8 +968,8 @@ def plc_prediction():
                     delta = -1.5 - (i * 0.3)
                 monthly_scores.append(min(100, max(10, monthly_scores[-1] + delta)))
 
-        if not explanation:
-            explanation = f"{keyword}는 현재 {current_phase} 단계에 있으며, 6개월 후 {prediction_6m}, 12개월 후 {prediction_12m} 단계로 진행될 것으로 예측됩니다."
+        if not summary:
+            summary = f"{keyword}는 현재 {current_phase} 단계에 있으며, 6개월 후 {prediction_6m}, 12개월 후 {prediction_12m} 단계로 진행될 것으로 예측됩니다."
 
         return jsonify({
             "success": True,
@@ -928,7 +977,11 @@ def plc_prediction():
             "prediction6m": prediction_6m,
             "prediction12m": prediction_12m,
             "monthlyScores": monthly_scores[:13],
-            "explanation": explanation,
+            "growthDrivers": growth_drivers[:3],
+            "declineRisks": decline_risks[:3],
+            "scenarios": scenarios[:2],
+            "summary": clean_text(summary),
+            "explanation": clean_text(summary),  # 기존 호환성 유지
         })
 
     except Exception as e:
@@ -993,18 +1046,33 @@ def category_prediction():
 [6개월예측] 도입기/성장기/성숙기/쇠퇴기 중 하나
 [12개월예측] 도입기/성장기/성숙기/쇠퇴기 중 하나
 [월별점수] 현재부터 12개월 후까지 13개의 예측 점수를 쉼표로 구분 (0-100 범위)
-[분석] 3-5문장으로 다음 포함: (a)성장/지속 드라이버 (b)하락/소멸 리스크 (c)조건부 시나리오"""
 
-        response = generate_response(prompt, max_new_tokens=600)
+[성장드라이버]
+• 현재 성장을 이끄는 핵심 요인 1
+• 현재 성장을 이끄는 핵심 요인 2
+
+[하락리스크]
+• 잠재적 하락/소멸 리스크 1
+• 잠재적 하락/소멸 리스크 2
+
+[시나리오]
+• 긍정 시나리오: 조건 충족 시 예상 결과
+• 부정 시나리오: 리스크 발생 시 예상 결과
+
+[종합의견] 1-2문장으로 최종 종합 의견"""
+
+        response = generate_response(prompt, max_new_tokens=800)
 
         current_phase = "성장기"
         prediction_6m = "성숙기"
         prediction_12m = "성숙기"
         monthly_scores = []
-        explanation = ""
+        growth_drivers = []
+        decline_risks = []
+        scenarios = []
+        summary = ""
 
         lines = response.split("\n")
-        explanation_lines = []
         current_section = None
 
         for line in lines:
@@ -1031,21 +1099,36 @@ def category_prediction():
                 numbers = re.findall(r'\d+(?:\.\d+)?', line.split("]")[-1] if "]" in line else line.split(":")[-1])
                 monthly_scores = [min(100, max(0, float(n))) for n in numbers[:13]]
                 current_section = "scores"
-            elif any(kw in line for kw in ["[분석]", "분석:", "## 분석"]):
-                current_section = "explanation"
-                rest = re.sub(r'^\[분석\]|^분석:|^## 분석', '', line).strip()
+            elif any(kw in line for kw in ["[성장드라이버]", "성장드라이버:", "성장 드라이버"]):
+                current_section = "drivers"
+            elif any(kw in line for kw in ["[하락리스크]", "하락리스크:", "하락 리스크"]):
+                current_section = "risks"
+            elif any(kw in line for kw in ["[시나리오]", "시나리오:"]):
+                current_section = "scenarios"
+            elif any(kw in line for kw in ["[종합의견]", "종합의견:", "종합 의견"]):
+                current_section = "summary"
+                rest = re.sub(r'^\[종합의견\]|^종합의견:|^\[종합 의견\]', '', line).strip()
                 if rest and len(rest) > 5:
-                    explanation_lines.append(rest)
+                    summary = rest
             elif current_section == "scores" and not monthly_scores:
                 numbers = re.findall(r'\d+(?:\.\d+)?', line)
                 if numbers:
                     monthly_scores = [min(100, max(0, float(n))) for n in numbers[:13]]
-            elif current_section == "explanation":
-                clean_line = line.lstrip("0123456789.-•→·)#* ").strip()
+            elif current_section == "drivers":
+                clean_line = line.lstrip("•-·* ").strip()
                 if clean_line and len(clean_line) > 5:
-                    explanation_lines.append(clean_line)
-
-        explanation = clean_text(" ".join(explanation_lines)) if explanation_lines else ""
+                    growth_drivers.append(clean_line)
+            elif current_section == "risks":
+                clean_line = line.lstrip("•-·* ").strip()
+                if clean_line and len(clean_line) > 5:
+                    decline_risks.append(clean_line)
+            elif current_section == "scenarios":
+                clean_line = line.lstrip("•-·* ").strip()
+                if clean_line and len(clean_line) > 5:
+                    scenarios.append(clean_line)
+            elif current_section == "summary":
+                if line and len(line) > 5:
+                    summary += " " + line
 
         if len(monthly_scores) < 13:
             base = avg_score
@@ -1064,8 +1147,8 @@ def category_prediction():
                     delta = -1.2 - (i * 0.2)
                 monthly_scores.append(min(100, max(10, monthly_scores[-1] + delta)))
 
-        if not explanation:
-            explanation = f"{country_name} {category} 카테고리는 현재 {current_phase} 단계에 있으며, 6개월 후 {prediction_6m}, 12개월 후 {prediction_12m} 단계로 진행될 것으로 예측됩니다."
+        if not summary:
+            summary = f"{country_name} {category} 카테고리는 현재 {current_phase} 단계에 있으며, 6개월 후 {prediction_6m}, 12개월 후 {prediction_12m} 단계로 진행될 것으로 예측됩니다."
 
         return jsonify({
             "success": True,
@@ -1073,7 +1156,11 @@ def category_prediction():
             "prediction6m": prediction_6m,
             "prediction12m": prediction_12m,
             "monthlyScores": monthly_scores[:13],
-            "explanation": explanation,
+            "growthDrivers": growth_drivers[:3],
+            "declineRisks": decline_risks[:3],
+            "scenarios": scenarios[:2],
+            "summary": clean_text(summary),
+            "explanation": clean_text(summary),  # 기존 호환성 유지
         })
 
     except Exception as e:

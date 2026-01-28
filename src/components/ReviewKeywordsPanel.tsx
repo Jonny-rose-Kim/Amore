@@ -3,7 +3,7 @@ import { ReviewKeywords } from '../data/mockData';
 import { ThumbsUp, ThumbsDown, Sparkles, Loader2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell } from 'recharts';
 import { useState, useEffect } from 'react';
-import { fetchCombinationReviewsByType, fetchCombinationReviewKeywords, fetchLLMReviewSummary, fetchReviewTypeSummary, ReviewDetail } from '../services/api';
+import { fetchCombinationReviewsByType, fetchCombinationReviewKeywords, fetchLLMReviewSummary, fetchReviewTypeSummary, saveInsight, ReviewDetail } from '../services/api';
 import { translateReview, generateReviewSummary } from '../utils/koreanTranslations';
 
 interface ReviewKeywordsPanelProps {
@@ -121,6 +121,14 @@ export default function ReviewKeywordsPanel({ keywords, itemName, isCombination 
             insights: result.insights,
             sentimentRatio: result.sentimentRatio,
           });
+          // 인사이트 자동 저장 - 리뷰 AI 분석
+          const positiveRatio = Math.round((result.sentimentRatio || 0.7) * 100);
+          saveInsight(
+            'review-analysis',
+            `리뷰 AI 분석: ${itemName}`,
+            `${result.summary}\n\n인사이트: ${result.insights?.join(', ') || ''}\n\n긍정 비율: ${positiveRatio}%`,
+            { keyword: itemName, country, isCombination }
+          );
         }
       } catch (e) {
         console.error('LLM API 호출 실패, fallback 사용:', e);

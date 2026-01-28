@@ -5,7 +5,7 @@ import { Instagram, Music, Youtube, ShoppingBag, Store, Sparkles, Loader2 } from
 import { getIntegratedAIAnalysis } from '../data/leaderboardData';
 import { useState, useEffect, useMemo } from 'react';
 import ProductDetailModal from './ProductDetailModal';
-import { fetchSNSPlatformData, fetchProductsByKeyword, fetchLLMSNSAnalysis, SNSPlatformDBData, fetchLeaderboard } from '../services/api';
+import { fetchSNSPlatformData, fetchProductsByKeyword, fetchLLMSNSAnalysis, saveInsight, SNSPlatformDBData, fetchLeaderboard } from '../services/api';
 
 interface SNSTopChartProps {
   data: SNSTopIngredient[];
@@ -403,6 +403,17 @@ export default function SNSTopChart({ data, country, category }: SNSTopChartProp
           insights: result.insights,
           recommendations: result.recommendations,
         });
+        // 인사이트 자동 저장 - SNS/Retail AI 분석
+        const countryNames: Record<string, string> = {
+          usa: '미국', japan: '일본', singapore: '싱가포르',
+          malaysia: '말레이시아', indonesia: '인도네시아',
+        };
+        saveInsight(
+          'sns-retail-analysis',
+          `${countryNames[country || 'usa'] || country} ${category || 'Skincare'} SNS/Retail AI 분석`,
+          `${result.summary}\n\nRetail 분석: ${result.retailAnalysis || ''}\n\nSNS 분석: ${result.snsAnalysis || ''}\n\n추천: ${result.recommendations?.join(', ') || ''}`,
+          { country, category }
+        );
         setIsAnalyzing(false);
         setShowAnalysis(true);
         return;

@@ -562,6 +562,10 @@ export interface PLCPredictionData {
   prediction6m: string;
   prediction12m: string;
   monthlyScores: number[];
+  growthDrivers?: string[];
+  declineRisks?: string[];
+  scenarios?: string[];
+  summary?: string;
   explanation: string;
   error?: string;
 }
@@ -1287,6 +1291,44 @@ export async function fetchKbeautyTrendsAnalysis(
       marketOutlook: '',
       error: String(error)
     };
+  }
+}
+
+// K-Beauty 성분별 제품 조회 (Atlas 서버)
+export async function fetchKbeautyProductsByIngredient(
+  ingredient: string
+): Promise<{ ingredient: string; products: KbeautyProduct[]; totalCount: number } | null> {
+  try {
+    const response = await fetch(
+      `${KBEAUTY_API_BASE_URL}/real/kbeauty/products-by-ingredient?ingredient=${encodeURIComponent(ingredient)}`
+    );
+    if (!response.ok) {
+      console.error('K-Beauty 성분별 제품 API 오류:', response.status);
+      return null;
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('K-Beauty 성분별 제품 조회 오류:', error);
+    return null;
+  }
+}
+
+// K-Beauty 피부고민별 제품 조회 (Atlas 서버)
+export async function fetchKbeautyProductsByConcern(
+  concern: string
+): Promise<{ concern: string; products: KbeautyProduct[]; totalCount: number } | null> {
+  try {
+    const response = await fetch(
+      `${KBEAUTY_API_BASE_URL}/real/kbeauty/products-by-concern?concern=${encodeURIComponent(concern)}`
+    );
+    if (!response.ok) {
+      console.error('K-Beauty 고민별 제품 API 오류:', response.status);
+      return null;
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('K-Beauty 고민별 제품 조회 오류:', error);
+    return null;
   }
 }
 
