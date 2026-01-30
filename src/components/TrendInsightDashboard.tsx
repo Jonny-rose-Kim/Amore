@@ -189,21 +189,21 @@ export default function TrendInsightDashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  // 1분마다 인사이트 저장 버튼 설명 말풍선 표시
+  // 5분마다 인사이트 저장 버튼 설명 말풍선 표시
   useEffect(() => {
     // 초기에 5초 후 말풍선 숨기기
     const initialTimeout = setTimeout(() => {
       setShowInsightTooltip(false);
     }, 5000);
 
-    // 1분마다 말풍선 다시 표시
+    // 5분마다 말풍선 다시 표시
     const tooltipInterval = setInterval(() => {
       setShowInsightTooltip(true);
       // 5초 후 숨기기
       setTimeout(() => {
         setShowInsightTooltip(false);
       }, 5000);
-    }, 60000); // 1분
+    }, 300000); // 5분
 
     return () => {
       clearTimeout(initialTimeout);
@@ -433,66 +433,72 @@ export default function TrendInsightDashboard() {
             {/* 인사이트 저장 버튼 + 국가 선택 드롭박스 */}
             <div className="flex items-center gap-4">
               {/* 인사이트 저장 버튼 - 동적 애니메이션 */}
-              <div className="relative">
-                {/* 설명 말풍선 - 1분마다 표시 */}
-                <AnimatePresence>
-                  {showInsightTooltip && !insightNotification.show && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.9 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                      className="absolute top-full left-1/2 -translate-x-1/2 mt-3 bg-gradient-to-r from-slate-700 to-slate-800 text-white px-4 py-3 rounded-xl shadow-xl whitespace-nowrap z-50 max-w-xs"
-                    >
-                      <div className="flex items-start gap-2">
-                        <MessageCircle className="w-5 h-5 text-violet-300 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <p className="font-medium text-sm">AI 분석 후 생성된 인사이트를</p>
-                          <p className="font-medium text-sm">저장하고 싶다면 눌러주세요!</p>
-                        </div>
-                      </div>
-                      {/* 말풍선 꼬리 - 상단 중앙 */}
-                      <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-b-8 border-transparent border-b-slate-700"></div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+              <div className="flex items-center gap-3">
+                {/* 고정 말풍선 라벨 - 버튼 왼쪽 */}
+                <div className="bg-gradient-to-r from-violet-500 to-purple-600 text-white px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap relative">
+                  <span className="text-sm font-semibold">📥 인사이트 저장</span>
+                  {/* 말풍선 꼬리 - 오른쪽 */}
+                  <div className="absolute right-0 top-1/2 translate-x-1.5 -translate-y-1/2 w-0 h-0 border-t-[6px] border-b-[6px] border-l-[8px] border-transparent border-l-purple-600"></div>
+                </div>
 
-                {/* 알림 말풍선 - 좌측 하단 */}
-                <AnimatePresence>
-                  {insightNotification.show && (
-                    <motion.div
-                      initial={{ opacity: 0, x: -10, scale: 0.9 }}
-                      animate={{ opacity: 1, x: 0, scale: 1 }}
-                      exit={{ opacity: 0, x: -10, scale: 0.9 }}
-                      className="absolute top-full left-0 mt-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-4 py-2 rounded-xl shadow-lg whitespace-nowrap z-50"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">✨</span>
-                        <span className="font-bold">인사이트 {insightNotification.count}회 생성!</span>
-                      </div>
-                      {/* 말풍선 꼬리 - 좌측 상단 */}
-                      <div className="absolute -top-2 left-4 w-0 h-0 border-l-8 border-r-8 border-b-8 border-transparent border-b-emerald-500"></div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                {/* 버튼 래퍼 - 버튼과 같은 크기로 지정 */}
+                <div className="relative w-12 h-12">
+                  {/* 설명 말풍선 - 5분마다 표시 (버튼 아래 왼쪽) */}
+                  <AnimatePresence>
+                    {showInsightTooltip && !insightNotification.show && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -5, scale: 0.9 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -5, scale: 0.9 }}
+                        className="absolute top-16 right-0 bg-gradient-to-r from-amber-400 to-yellow-400 text-amber-900 px-4 py-2.5 rounded-xl shadow-xl whitespace-nowrap z-50"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">💡</span>
+                          <p className="font-bold text-sm">클릭해서 생성한 인사이트를 저장하세요!</p>
+                        </div>
+                        {/* 말풍선 꼬리 - 상단 오른쪽 */}
+                        <div className="absolute -top-2 right-4 w-0 h-0 border-l-8 border-r-8 border-b-8 border-transparent border-b-amber-400"></div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* 알림 말풍선 - 버튼 아래 왼쪽 */}
+                  <AnimatePresence>
+                    {insightNotification.show && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -5, scale: 0.9 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -5, scale: 0.9 }}
+                        className="absolute top-16 right-0 bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-4 py-2 rounded-xl shadow-lg whitespace-nowrap z-50"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">✨</span>
+                          <span className="font-bold">인사이트 {insightNotification.count}회 생성!</span>
+                        </div>
+                        {/* 말풍선 꼬리 - 상단 오른쪽 */}
+                        <div className="absolute -top-2 right-4 w-0 h-0 border-l-8 border-r-8 border-b-8 border-transparent border-b-emerald-500"></div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
                 {/* 인사이트 카운트 배지 */}
                 {insightCount > 0 && (
                   <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className="absolute -top-2 -right-2 w-6 h-6 bg-emerald-500 text-white text-xs font-bold rounded-full flex items-center justify-center z-10 shadow-lg"
+                    className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 text-white text-xs font-bold rounded-full flex items-center justify-center z-10 shadow-lg"
                   >
                     {insightCount}
                   </motion.div>
                 )}
 
                 <motion.button
-                  whileHover={{ scale: 1.05 }}
+                  whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.95 }}
                   animate={{
                     boxShadow: [
                       '0 0 0 0 rgba(139, 92, 246, 0.4)',
-                      '0 0 0 12px rgba(139, 92, 246, 0)',
+                      '0 0 0 10px rgba(139, 92, 246, 0)',
                       '0 0 0 0 rgba(139, 92, 246, 0)'
                     ],
                   }}
@@ -509,15 +515,14 @@ export default function TrendInsightDashboard() {
                     setExportError(null);
                     setIsInsightModalOpen(true);
                   }}
-                  className="px-5 py-2.5 rounded-xl font-semibold transition-all flex items-center gap-2 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white shadow-lg shadow-violet-500/30 relative overflow-hidden"
+                  className="w-12 h-12 rounded-full font-semibold transition-all flex items-center justify-center bg-gradient-to-br from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white shadow-lg shadow-violet-500/30 relative overflow-hidden"
                 >
                   <motion.div
                     animate={{ rotate: [0, 15, -15, 0] }}
                     transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
                   >
-                    <Sparkles className="w-4 h-4" />
+                    <Sparkles className="w-5 h-5" />
                   </motion.div>
-                  <span>📥 인사이트 저장</span>
                   {/* 반짝이는 효과 */}
                   <motion.div
                     className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
@@ -525,6 +530,7 @@ export default function TrendInsightDashboard() {
                     transition={{ duration: 2.5, repeat: Infinity, ease: 'linear', repeatDelay: 1.5 }}
                   />
                 </motion.button>
+                </div>
               </div>
 
               {/* 국가 선택 드롭박스 */}

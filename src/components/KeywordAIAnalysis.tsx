@@ -158,11 +158,25 @@ export default function KeywordAIAnalysis({
   const savedInsightsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    // 키워드 변경 시 저장 기록 초기화
+    // 키워드/국가 변경 시 저장 기록 초기화
     savedInsightsRef.current = new Set();
-  }, [keyword]);
+  }, [keyword, country]);
+
+  // 이미 로딩 중인지 추적하는 ref (중복 호출 방지)
+  const isLoadingRef = useRef(false);
+  const loadedKeyRef = useRef<string | null>(null); // keyword+country 조합 저장
 
   useEffect(() => {
+    const currentKey = `${keyword}-${country}`;
+
+    // 이미 같은 키워드+국가 조합으로 로딩 중이거나 로딩 완료된 경우 재실행 방지
+    if (isLoadingRef.current || loadedKeyRef.current === currentKey) {
+      return;
+    }
+
+    isLoadingRef.current = true;
+    loadedKeyRef.current = currentKey;
+
     // Fire all 6 requests in parallel on mount
     const loadAll = async () => {
       // Section 0: Keyword Description (DB) - 조합 키워드 지원
@@ -288,10 +302,14 @@ export default function KeywordAIAnalysis({
         setStrategyError('전략 분석 서버 연결 실패');
         setStrategyLoading(false);
       });
+
+      // 모든 요청 완료 후 로딩 상태 해제
+      isLoadingRef.current = false;
     };
 
     loadAll();
-  }, [keyword, country, category, keywordType, trendLevel, score, signals]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [keyword, country]); // 핵심 파라미터만 dependency로 설정 (signals 객체 제외)
 
   const countryNames: Record<string, string> = {
     usa: '미국', japan: '일본', singapore: '싱가포르',

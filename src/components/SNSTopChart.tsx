@@ -365,12 +365,12 @@ export default function SNSTopChart({ data, country, category }: SNSTopChartProp
     return { products, additionalInfo };
   };
 
-  // 국가/카테고리 변경 시 분석 상태 리셋
+  // 국가/카테고리 변경 시에만 분석 상태 리셋 (dbPlatforms 제외 - 비동기 로딩으로 인한 깜빡임 방지)
   useEffect(() => {
     setShowAnalysis(false);
     setIsAnalyzing(false);
     setAnalysisData(null);
-  }, [data, country, dbPlatforms]);
+  }, [country, category]);
 
   const handleAnalysisClick = async () => {
     if (showAnalysis) {
@@ -586,13 +586,48 @@ export default function SNSTopChart({ data, country, category }: SNSTopChartProp
                   <ShoppingBag className="w-5 h-5 text-orange-600" />
                   <h5 className="text-lg font-bold text-orange-700">Retail 채널 분석</h5>
                 </div>
-                <div className="text-sm text-slate-800 leading-relaxed space-y-1.5">
-                  {analysisData.retailAnalysis.split(/[.。]/).filter(s => s.trim()).map((sentence, idx) => (
-                    <div key={idx} className="flex items-start gap-2">
-                      <span className="text-orange-500 font-bold mt-0.5">•</span>
-                      <span>{sentence.trim()}</span>
-                    </div>
-                  ))}
+                <div className="text-sm text-slate-800 leading-relaxed space-y-3">
+                  {(() => {
+                    // 숫자 섹션으로 분리 (1, 2, 3 등)
+                    const sections = analysisData.retailAnalysis.split(/(?=\b[1-9]\s*[•·.]?\s*(?:주요|소비자|수치|핵심|시장|전략|분석|트렌드|인사이트))/gi);
+                    let sectionNum = 0;
+
+                    return sections.map((section, idx) => {
+                      const trimmed = section.trim();
+                      if (!trimmed) return null;
+
+                      // 숫자로 시작하는 섹션인지 확인
+                      const numMatch = trimmed.match(/^(\d)\s*[•·.]?\s*(.*)/s);
+                      if (numMatch) {
+                        sectionNum = parseInt(numMatch[1]);
+                        const content = numMatch[2].trim();
+                        const sentences = content.split(/[.。]/).filter(s => s.trim());
+
+                        return (
+                          <div key={idx} className="space-y-2">
+                            <div className="font-bold text-orange-700 text-base border-b border-orange-200 pb-1">
+                              Retail 채널 분석 {sectionNum}
+                            </div>
+                            {sentences.map((sentence, sIdx) => (
+                              <div key={sIdx} className="flex items-start gap-2 ml-2">
+                                <span className="text-orange-500 font-bold mt-0.5">•</span>
+                                <span>{sentence.trim()}</span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      }
+
+                      // 숫자가 없는 일반 텍스트
+                      const sentences = trimmed.split(/[.。]/).filter(s => s.trim());
+                      return sentences.map((sentence, sIdx) => (
+                        <div key={`${idx}-${sIdx}`} className="flex items-start gap-2">
+                          <span className="text-orange-500 font-bold mt-0.5">•</span>
+                          <span>{sentence.trim()}</span>
+                        </div>
+                      ));
+                    });
+                  })()}
                 </div>
               </motion.div>
             )}
@@ -609,13 +644,48 @@ export default function SNSTopChart({ data, country, category }: SNSTopChartProp
                   <Instagram className="w-5 h-5 text-pink-600" />
                   <h5 className="text-lg font-bold text-pink-700">SNS 채널 분석</h5>
                 </div>
-                <div className="text-sm text-slate-800 leading-relaxed space-y-1.5">
-                  {analysisData.snsAnalysis.split(/[.。]/).filter(s => s.trim()).map((sentence, idx) => (
-                    <div key={idx} className="flex items-start gap-2">
-                      <span className="text-pink-500 font-bold mt-0.5">•</span>
-                      <span>{sentence.trim()}</span>
-                    </div>
-                  ))}
+                <div className="text-sm text-slate-800 leading-relaxed space-y-3">
+                  {(() => {
+                    // 숫자 섹션으로 분리 (1, 2, 3 등)
+                    const sections = analysisData.snsAnalysis.split(/(?=\b[1-9]\s*[•·.]?\s*(?:주요|바이럴|수치|핵심|시장|전략|분석|트렌드|인사이트|포인트))/gi);
+                    let sectionNum = 0;
+
+                    return sections.map((section, idx) => {
+                      const trimmed = section.trim();
+                      if (!trimmed) return null;
+
+                      // 숫자로 시작하는 섹션인지 확인
+                      const numMatch = trimmed.match(/^(\d)\s*[•·.]?\s*(.*)/s);
+                      if (numMatch) {
+                        sectionNum = parseInt(numMatch[1]);
+                        const content = numMatch[2].trim();
+                        const sentences = content.split(/[.。]/).filter(s => s.trim());
+
+                        return (
+                          <div key={idx} className="space-y-2">
+                            <div className="font-bold text-pink-700 text-base border-b border-pink-200 pb-1">
+                              SNS 채널 분석 {sectionNum}
+                            </div>
+                            {sentences.map((sentence, sIdx) => (
+                              <div key={sIdx} className="flex items-start gap-2 ml-2">
+                                <span className="text-pink-500 font-bold mt-0.5">•</span>
+                                <span>{sentence.trim()}</span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      }
+
+                      // 숫자가 없는 일반 텍스트
+                      const sentences = trimmed.split(/[.。]/).filter(s => s.trim());
+                      return sentences.map((sentence, sIdx) => (
+                        <div key={`${idx}-${sIdx}`} className="flex items-start gap-2">
+                          <span className="text-pink-500 font-bold mt-0.5">•</span>
+                          <span>{sentence.trim()}</span>
+                        </div>
+                      ));
+                    });
+                  })()}
                 </div>
               </motion.div>
             )}
@@ -670,19 +740,96 @@ export default function SNSTopChart({ data, country, category }: SNSTopChartProp
                   <Store className="w-5 h-5 text-emerald-600" />
                   <h5 className="text-lg font-bold text-emerald-700">전략 제안</h5>
                 </div>
-                <ul className="space-y-2">
-                  {analysisData.recommendations.map((rec, idx) => (
-                    <motion.li
-                      key={idx}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.4 + idx * 0.08 }}
-                      className="flex items-start gap-2 text-sm text-slate-800"
-                    >
-                      <span className="text-emerald-600 font-bold mt-0.5">→</span>
-                      <span className="leading-relaxed">{rec}</span>
-                    </motion.li>
-                  ))}
+                <ul className="space-y-4">
+                  {(() => {
+                    // 전략들을 구조화하여 파싱 - [RETAIL], [SNS], [INTEGRATED] 태그 기반
+                    const strategies: { type: 'retail' | 'sns' | 'combined' | 'general'; title: string; content: string }[] = [];
+
+                    analysisData.recommendations.forEach((rec) => {
+                      // [RETAIL] 태그로 시작
+                      if (rec.startsWith('[RETAIL]')) {
+                        const content = rec.replace('[RETAIL]', '').trim();
+                        strategies.push({ type: 'retail', title: 'Retail 채널 전략', content });
+                        return;
+                      }
+                      // [SNS] 태그로 시작
+                      if (rec.startsWith('[SNS]')) {
+                        const content = rec.replace('[SNS]', '').trim();
+                        strategies.push({ type: 'sns', title: 'SNS 채널 전략', content });
+                        return;
+                      }
+                      // [INTEGRATED] 태그로 시작
+                      if (rec.startsWith('[INTEGRATED]')) {
+                        const content = rec.replace('[INTEGRATED]', '').trim();
+                        strategies.push({ type: 'combined', title: 'Retail & SNS 통합 전략', content });
+                        return;
+                      }
+
+                      // 기존 형식 호환 - "Retail 채널 전략:" 등
+                      if (/^Retail\s*채널\s*전략/i.test(rec)) {
+                        const content = rec.replace(/^Retail\s*채널\s*전략\s*[:\-]?\s*/i, '').trim();
+                        if (content) strategies.push({ type: 'retail', title: 'Retail 채널 전략', content });
+                        return;
+                      }
+                      if (/^SNS\s*채널\s*전략/i.test(rec)) {
+                        const content = rec.replace(/^SNS\s*채널\s*전략\s*[:\-]?\s*/i, '').trim();
+                        if (content) strategies.push({ type: 'sns', title: 'SNS 채널 전략', content });
+                        return;
+                      }
+                      if (/Retail.*SNS.*연계|통합.*전략|Retail\s*&\s*SNS/i.test(rec)) {
+                        const content = rec.replace(/^[^:]+:\s*/, '').trim();
+                        strategies.push({ type: 'combined', title: 'Retail & SNS 통합 전략', content });
+                        return;
+                      }
+
+                      // 키워드 기반 자동 분류
+                      const isSNS = /유튜브|YouTube|인스타그램|Instagram|틱톡|TikTok|SNS|소셜|인플루언서|콘텐츠|영상|바이럴/i.test(rec);
+                      const isRetail = /Amazon|아마존|Sephora|세포라|리테일|Retail|매장|쇼핑|제품|성분|배합/i.test(rec);
+
+                      if (isSNS && !isRetail) {
+                        strategies.push({ type: 'sns', title: 'SNS 채널 전략', content: rec });
+                      } else if (isRetail && !isSNS) {
+                        strategies.push({ type: 'retail', title: 'Retail 채널 전략', content: rec });
+                      } else if (isSNS && isRetail) {
+                        strategies.push({ type: 'combined', title: 'Retail & SNS 통합 전략', content: rec });
+                      } else {
+                        strategies.push({ type: 'general', title: '', content: rec });
+                      }
+                    });
+
+                    return strategies.map((strategy, idx) => (
+                      <motion.li
+                        key={idx}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.4 + idx * 0.08 }}
+                        className="text-sm text-slate-800 space-y-2"
+                      >
+                        {strategy.title && (
+                          <div className={`font-bold text-base border-b pb-1 ${
+                            strategy.type === 'retail'
+                              ? 'text-orange-700 border-orange-200'
+                              : strategy.type === 'sns'
+                              ? 'text-pink-700 border-pink-200'
+                              : strategy.type === 'combined'
+                              ? 'text-purple-700 border-purple-200'
+                              : 'text-emerald-700 border-emerald-200'
+                          }`}>
+                            {strategy.title}
+                          </div>
+                        )}
+                        <div className="flex items-start gap-2 ml-2">
+                          <span className={`font-bold mt-0.5 ${
+                            strategy.type === 'retail' ? 'text-orange-500' :
+                            strategy.type === 'sns' ? 'text-pink-500' :
+                            strategy.type === 'combined' ? 'text-purple-500' :
+                            'text-emerald-600'
+                          }`}>→</span>
+                          <span className="leading-relaxed">{strategy.content}</span>
+                        </div>
+                      </motion.li>
+                    ));
+                  })()}
                 </ul>
               </motion.div>
             )}

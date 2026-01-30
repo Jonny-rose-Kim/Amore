@@ -649,24 +649,103 @@ export default function ReviewKeywordsPanel({ keywords, itemName, isCombination 
                       {section.content.split('\n').map((line, lineIdx) => {
                         const trimmedLine = line.trim();
                         if (!trimmedLine) return null;
-                        // 번호가 붙은 라인은 리스트 스타일로
-                        if (/^\d+\./.test(trimmedLine)) {
+
+                        // 하위 섹션 제목 (긍정 요인:, 부정 요인:, 핵심 인사이트, 시장 전망 등)
+                        const subHeaderMatch = trimmedLine.match(/^(긍정\s*요인|부정\s*요인|핵심\s*인사이트|시장\s*전망|주요\s*포인트|결론|요약|분석\s*결과)\s*:?\s*$/i);
+                        if (subHeaderMatch) {
                           return (
-                            <div key={lineIdx} className="flex items-start gap-2 mt-1">
-                              <span className={`${section.color} font-bold`}>{trimmedLine.match(/^\d+/)?.[0]}.</span>
-                              <span>{trimmedLine.replace(/^\d+\.\s*/, '')}</span>
+                            <div key={lineIdx} className={`${section.color} font-bold text-base mt-3 mb-1`}>
+                              {trimmedLine}
                             </div>
                           );
                         }
+
+                        // - 로 시작하는 하이픈 리스트 (세부 항목)
+                        if (trimmedLine.startsWith('-')) {
+                          const content = trimmedLine.substring(1).trim();
+                          // "키워드: 설명" 형태인지 확인
+                          const colonMatch = content.match(/^([^:]+):\s*(.+)$/);
+                          if (colonMatch) {
+                            return (
+                              <div key={lineIdx} className="flex items-start gap-2 mt-1.5 ml-3">
+                                <span className="text-slate-400 mt-0.5">-</span>
+                                <div>
+                                  <span className="font-semibold text-slate-900">{colonMatch[1]}:</span>
+                                  <span className="text-slate-700"> {colonMatch[2]}</span>
+                                </div>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div key={lineIdx} className="flex items-start gap-2 mt-1 ml-3">
+                              <span className="text-slate-400">-</span>
+                              <span>{content}</span>
+                            </div>
+                          );
+                        }
+
+                        // 번호가 붙은 라인은 리스트 스타일로
+                        if (/^\d+\./.test(trimmedLine)) {
+                          const numMatch = trimmedLine.match(/^(\d+)\.\s*(.+)$/);
+                          if (numMatch) {
+                            // "번호. 키워드: 설명" 형태
+                            const colonIdx = numMatch[2].indexOf(':');
+                            if (colonIdx > 0 && colonIdx < 30) {
+                              const title = numMatch[2].substring(0, colonIdx);
+                              const desc = numMatch[2].substring(colonIdx + 1).trim();
+                              return (
+                                <div key={lineIdx} className="flex items-start gap-2 mt-2">
+                                  <span className={`w-6 h-6 flex-shrink-0 rounded-full bg-gradient-to-r ${
+                                    section.color.includes('blue') ? 'from-blue-400 to-indigo-400' :
+                                    section.color.includes('purple') ? 'from-purple-400 to-violet-400' :
+                                    section.color.includes('amber') ? 'from-amber-400 to-yellow-400' :
+                                    'from-rose-400 to-pink-400'
+                                  } text-white text-xs flex items-center justify-center font-bold`}>
+                                    {numMatch[1]}
+                                  </span>
+                                  <div className="flex-1">
+                                    <span className="font-bold text-slate-900">{title}:</span>
+                                    <span className="text-slate-700"> {desc}</span>
+                                  </div>
+                                </div>
+                              );
+                            }
+                          }
+                          return (
+                            <div key={lineIdx} className="flex items-start gap-2 mt-2">
+                              <span className={`w-6 h-6 flex-shrink-0 rounded-full bg-gradient-to-r ${
+                                section.color.includes('blue') ? 'from-blue-400 to-indigo-400' :
+                                section.color.includes('purple') ? 'from-purple-400 to-violet-400' :
+                                section.color.includes('amber') ? 'from-amber-400 to-yellow-400' :
+                                'from-rose-400 to-pink-400'
+                              } text-white text-xs flex items-center justify-center font-bold`}>
+                                {trimmedLine.match(/^\d+/)?.[0]}
+                              </span>
+                              <span className="flex-1">{trimmedLine.replace(/^\d+\.\s*/, '')}</span>
+                            </div>
+                          );
+                        }
+
                         // • 불릿 포인트
                         if (trimmedLine.startsWith('•')) {
+                          const content = trimmedLine.substring(1).trim();
+                          // "키워드: 설명" 형태인지 확인
+                          if (content.includes(':')) {
+                            const [title, ...rest] = content.split(':');
+                            return (
+                              <div key={lineIdx} className="mt-3 mb-1">
+                                <span className={`${section.color} font-bold text-base`}>{title.trim()}:</span>
+                              </div>
+                            );
+                          }
                           return (
                             <div key={lineIdx} className="flex items-start gap-2 mt-1">
                               <span className={`${section.color} font-bold`}>•</span>
-                              <span>{trimmedLine.substring(1).trim()}</span>
+                              <span>{content}</span>
                             </div>
                           );
                         }
+
                         return <p key={lineIdx} className="mt-1">{trimmedLine}</p>;
                       })}
                     </div>

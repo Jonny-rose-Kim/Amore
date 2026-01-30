@@ -7,6 +7,50 @@ function generateSessionId(): string {
   return `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 }
 
+/** 타이핑 효과가 있는 텍스트 컴포넌트 */
+function TypingText({
+  text,
+  speed = 15,
+  onComplete
+}: {
+  text: string;
+  speed?: number;
+  onComplete?: () => void;
+}) {
+  const [displayedText, setDisplayedText] = useState('');
+  const [isComplete, setIsComplete] = useState(false);
+
+  useEffect(() => {
+    setDisplayedText('');
+    setIsComplete(false);
+
+    let currentIndex = 0;
+    const intervalId = setInterval(() => {
+      if (currentIndex < text.length) {
+        // 한 번에 여러 글자 추가 (더 자연스러운 효과)
+        const charsToAdd = Math.min(3, text.length - currentIndex);
+        setDisplayedText(text.substring(0, currentIndex + charsToAdd));
+        currentIndex += charsToAdd;
+      } else {
+        clearInterval(intervalId);
+        setIsComplete(true);
+        onComplete?.();
+      }
+    }, speed);
+
+    return () => clearInterval(intervalId);
+  }, [text, speed, onComplete]);
+
+  return (
+    <>
+      <FormattedResponse text={displayedText} />
+      {!isComplete && (
+        <span className="inline-block w-2 h-4 bg-pink-400 animate-pulse ml-0.5 rounded-sm" />
+      )}
+    </>
+  );
+}
+
 /** LLM 응답 포맷팅 컴포넌트 */
 function FormattedResponse({ text }: { text: string }) {
   const lines = text.split('\n');
@@ -90,6 +134,8 @@ export default function ChatBot() {
   const [sessionId, setSessionId] = useState(generateSessionId());
   const [isDragOver, setIsDragOver] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(true);
+  const [typingMessageId, setTypingMessageId] = useState<string | null>(null); // 현재 타이핑 중인 메시지 ID
+  const [showInitialTooltip, setShowInitialTooltip] = useState(false); // 처음 방문 시 챗봇 안내 말풍선
 
   // 드래그 및 확대 관련 상태
   const [position, setPosition] = useState({ x: 24, y: 24 }); // bottom-left 기준
@@ -106,6 +152,27 @@ export default function ChatBot() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // 처음 방문 시 챗봇 안내 말풍선 표시
+  useEffect(() => {
+    const CHATBOT_TOOLTIP_KEY = 'amore-clue-chatbot-tooltip-dismissed';
+    const dismissed = localStorage.getItem(CHATBOT_TOOLTIP_KEY);
+    if (!dismissed) {
+      // 1초 후 말풍선 표시
+      const showTimer = setTimeout(() => {
+        setShowInitialTooltip(true);
+      }, 1500);
+      // 8초 후 자동 숨김 및 localStorage 저장
+      const hideTimer = setTimeout(() => {
+        setShowInitialTooltip(false);
+        localStorage.setItem(CHATBOT_TOOLTIP_KEY, 'true');
+      }, 9500);
+      return () => {
+        clearTimeout(showTimer);
+        clearTimeout(hideTimer);
+      };
+    }
+  }, []);
 
   // 드래그 이벤트 핸들러
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -264,20 +331,24 @@ export default function ChatBot() {
         });
       }
 
+      const botMessageId = `msg_${Date.now()}_bot`;
       const botMessage: ChatMessage = {
-        id: `msg_${Date.now()}_bot`,
+        id: botMessageId,
         role: 'bot',
         content: result.success ? result.response : (result.error || '응답 생성에 실패했습니다. 서버 상태를 확인해주세요.'),
         timestamp: Date.now(),
       };
+      setTypingMessageId(botMessageId); // 타이핑 효과 시작
       setMessages(prev => [...prev, botMessage]);
     } catch {
+      const errorMessageId = `msg_${Date.now()}_err`;
       const errorMessage: ChatMessage = {
-        id: `msg_${Date.now()}_err`,
+        id: errorMessageId,
         role: 'bot',
         content: '서버와의 연결에 실패했습니다. 잠시 후 다시 시도해주세요.',
         timestamp: Date.now(),
       };
+      setTypingMessageId(errorMessageId); // 에러 메시지도 타이핑 효과
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
@@ -325,11 +396,30 @@ export default function ChatBot() {
               {/* 반짝이는 효과 */}
               <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
-            {/* 말풍선 툴팁 */}
+            {/* 말풍선 툴팁 - 호버 시 */}
             <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 bg-white rounded-xl px-3 py-2 shadow-lg border border-slate-100 opacity-0 group-hover:opacity-100 transition-all transform group-hover:translate-x-0 translate-x-2 whitespace-nowrap pointer-events-none">
               <div className="text-xs font-medium text-slate-700">AI에게 물어보세요! 💬</div>
               <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-2 h-2 bg-white border-l border-b border-slate-100 rotate-45" />
             </div>
+            {/* 노란색 안내 말풍선 - 처음 방문 시 */}
+            <AnimatePresence>
+              {showInitialTooltip && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8, x: 10 }}
+                  animate={{ opacity: 1, scale: 1, x: 0 }}
+                  exit={{ opacity: 0, scale: 0.8, x: 10 }}
+                  className="absolute left-full ml-4 bottom-0 bg-gradient-to-br from-yellow-300 to-amber-400 rounded-2xl px-4 py-3 shadow-xl whitespace-nowrap pointer-events-none"
+                >
+                  <div className="text-sm font-bold text-amber-900 flex items-center gap-2">
+                    <span className="text-lg">💡</span>
+                    <span>궁금한 게 있으면 챗봇을 이용해보세요!</span>
+                  </div>
+                  <div className="text-xs text-amber-800 mt-1 ml-7">K-뷰티 트렌드, 성분, 제품 뭐든 물어보세요 🌸</div>
+                  {/* 말풍선 꼬리 */}
+                  <div className="absolute left-0 bottom-4 -translate-x-2 w-0 h-0 border-t-[10px] border-t-transparent border-b-[10px] border-b-transparent border-r-[12px] border-r-amber-400" />
+                </motion.div>
+              )}
+            </AnimatePresence>
             {/* 온라인 표시 */}
             <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center shadow-md border-2 border-white">
               <span className="text-[8px] font-bold text-white">AI</span>
@@ -461,7 +551,15 @@ export default function ChatBot() {
                       )}
                       {/* 메시지 내용 */}
                       {msg.role === 'bot' ? (
-                        <FormattedResponse text={msg.content} />
+                        msg.id === typingMessageId ? (
+                          <TypingText
+                            text={msg.content}
+                            speed={12}
+                            onComplete={() => setTypingMessageId(null)}
+                          />
+                        ) : (
+                          <FormattedResponse text={msg.content} />
+                        )
                       ) : (
                         <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
                       )}
@@ -563,20 +661,24 @@ export default function ChatBot() {
                             message: q.text,
                             sessionId,
                           });
+                          const botMessageId = `msg_${Date.now()}_bot`;
                           const botMessage: ChatMessage = {
-                            id: `msg_${Date.now()}_bot`,
+                            id: botMessageId,
                             role: 'bot',
                             content: result.success ? result.response : (result.error || '응답 생성에 실패했습니다.'),
                             timestamp: Date.now(),
                           };
+                          setTypingMessageId(botMessageId); // 타이핑 효과 시작
                           setMessages(prev => [...prev, botMessage]);
                         } catch {
+                          const errorMessageId = `msg_${Date.now()}_err`;
                           const errorMessage: ChatMessage = {
-                            id: `msg_${Date.now()}_err`,
+                            id: errorMessageId,
                             role: 'bot',
                             content: '서버와의 연결에 실패했습니다. 잠시 후 다시 시도해주세요.',
                             timestamp: Date.now(),
                           };
+                          setTypingMessageId(errorMessageId); // 에러 메시지도 타이핑 효과
                           setMessages(prev => [...prev, errorMessage]);
                         } finally {
                           setIsLoading(false);

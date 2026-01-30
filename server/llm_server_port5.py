@@ -257,18 +257,19 @@ def sns_analysis():
 [핵심 인사이트]
 {sub_results.get('insights', '')}
 
-위 분석을 바탕으로 K-뷰티 브랜드를 위한 전략을 제안해주세요.
+위 분석을 바탕으로 K-뷰티 브랜드를 위한 채널별 전략을 제안해주세요.
 
-[전략 제안]
+중요: 반드시 아래 3개 섹션 제목을 그대로 사용하고, 각 섹션 아래에 구체적인 실행 방안을 작성하세요.
 
-1. Retail 채널 전략
-- 구체적인 실행 방안 (1-2문장)
+[RETAIL]
+Amazon, Sephora 등 리테일 채널에서의 마케팅/제품 전략 (2-3문장)
 
-2. SNS 채널 전략
-- 구체적인 실행 방안 (1-2문장)
+[SNS]
+YouTube, Instagram, TikTok 등 SNS 채널에서의 콘텐츠/바이럴 전략 (2-3문장)
 
-3. 통합 마케팅 전략
-- Retail과 SNS를 연계한 전략 (1-2문장)
+[INTEGRATED]
+Retail과 SNS 채널을 연계한 통합 옴니채널 전략 (1-2문장)
+
 {output_rules}"""
 
         sub_results['strategy'] = generate_response(prompt_strategy, max_new_tokens=400)
@@ -290,16 +291,62 @@ def sns_analysis():
                     insights.append(clean_text(clean_line))
         insights = insights[:5]
 
-        # 전략 파싱
+        # 전략 파싱 - [RETAIL], [SNS], [INTEGRATED] 태그 기반
         strategy_raw = sub_results.get('strategy', '')
         recommendations = []
+        current_section = None
+        section_contents = {'retail': [], 'sns': [], 'integrated': []}
+
         for line in strategy_raw.split('\n'):
             line = line.strip()
-            if line and len(line) > 10:
-                clean_line = line.lstrip("0123456789.-•→·)#* ").strip()
-                if clean_line and len(clean_line) > 10:
+            if not line or len(line) < 3:
+                continue
+
+            # 섹션 태그 감지
+            if '[RETAIL]' in line.upper() or (line.upper().startswith('RETAIL') and len(line) < 20):
+                current_section = 'retail'
+                continue
+            elif '[SNS]' in line.upper() or (line.upper().startswith('SNS') and len(line) < 15):
+                current_section = 'sns'
+                continue
+            elif '[INTEGRATED]' in line.upper() or ('통합' in line and '전략' in line) or ('연계' in line and '전략' in line):
+                current_section = 'integrated'
+                continue
+
+            # 내용 수집
+            clean_line = line.lstrip("0123456789.-•→·)#*[] ").strip()
+            if clean_line and len(clean_line) > 10 and current_section:
+                section_contents[current_section].append(clean_text(clean_line))
+            elif clean_line and len(clean_line) > 10 and not current_section:
+                # 섹션 없이 바로 내용이 오면 SNS 관련 키워드 확인
+                is_sns = any(kw in clean_line for kw in ['YouTube', '유튜브', 'Instagram', '인스타그램', 'TikTok', '틱톡', 'SNS', '콘텐츠', '인플루언서', '바이럴'])
+                is_retail = any(kw in clean_line for kw in ['Amazon', '아마존', 'Sephora', '세포라', '리테일', 'Retail', '매장', '쇼핑'])
+                if is_sns and not is_retail:
+                    section_contents['sns'].append(clean_text(clean_line))
+                elif is_retail and not is_sns:
+                    section_contents['retail'].append(clean_text(clean_line))
+                else:
+                    section_contents['integrated'].append(clean_text(clean_line))
+
+        # 섹션별로 결과 생성
+        if section_contents['retail']:
+            content = ' '.join(section_contents['retail'][:2])
+            recommendations.append(f"[RETAIL] {content}")
+        if section_contents['sns']:
+            content = ' '.join(section_contents['sns'][:2])
+            recommendations.append(f"[SNS] {content}")
+        if section_contents['integrated']:
+            content = ' '.join(section_contents['integrated'][:2])
+            recommendations.append(f"[INTEGRATED] {content}")
+
+        # 섹션이 비어있으면 원본에서 직접 추출
+        if not recommendations:
+            for line in strategy_raw.split('\n'):
+                clean_line = line.strip().lstrip("0123456789.-•→·)#*[] ").strip()
+                if clean_line and len(clean_line) > 20:
                     recommendations.append(clean_text(clean_line))
-        recommendations = recommendations[:4]
+                    if len(recommendations) >= 3:
+                        break
 
         # Fallback
         if not retail_analysis or len(retail_analysis) < 20:

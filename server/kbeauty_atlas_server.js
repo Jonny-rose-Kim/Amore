@@ -21,7 +21,7 @@ const app = express();
 const PORT = process.env.KBEAUTY_PORT || 5002;
 
 // MongoDB Atlas 연결 설정
-const ATLAS_URI = process.env.MONGODB_ATLAS_URI || 'mongodb+srv://username:password@cluster.mongodb.net/';
+const MONGODB_URI = process.env.MONGODB_ATLAS_URI || 'mongodb+srv://amore_admin:amore123@cluster0.mhfe3ia.mongodb.net/?appName=Cluster0';
 const DB_NAME = 'amore_trend_db';
 
 let db = null;
@@ -30,16 +30,16 @@ let db = null;
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// MongoDB Atlas 연결
-async function connectAtlas() {
+// MongoDB 연결
+async function connectMongoDB() {
   try {
-    const client = new MongoClient(ATLAS_URI);
+    const client = new MongoClient(MONGODB_URI);
     await client.connect();
     db = client.db(DB_NAME);
-    console.log(`✅ MongoDB Atlas 연결 성공 (DB: ${DB_NAME})`);
+    console.log(`✅ MongoDB 연결 성공 (URI: ${MONGODB_URI.substring(0, 30)}..., DB: ${DB_NAME})`);
     return db;
   } catch (error) {
-    console.error('❌ MongoDB Atlas 연결 실패:', error.message);
+    console.error('❌ MongoDB 연결 실패:', error.message);
     return null;
   }
 }
@@ -495,7 +495,7 @@ app.post('/api/llm/ingredient-detail', async (req, res) => {
 
 // 서버 시작
 async function startServer() {
-  await connectAtlas();
+  await connectMongoDB();
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`\n🚀 K-Beauty Atlas Server running on http://0.0.0.0:${PORT}`);
