@@ -24,6 +24,7 @@
 ## 📋 Table of Contents
 
 - [Overview](#-overview)
+- [Demo](#-demo)
 - [Key Features](#-key-features)
 - [System Architecture](#-system-architecture)
 - [Two-Track AI Pipeline](#-two-track-ai-pipeline)
@@ -33,6 +34,7 @@
 - [Tech Stack](#-tech-stack)
 - [Installation & Setup](#-installation--setup)
 - [API Endpoints](#-api-endpoints)
+- [Team](#-team)
 
 ---
 
@@ -41,6 +43,15 @@
 **AMORE CLUE**는 글로벌 화장품 시장의 트렌드를 실시간으로 분석하고, AI 기반 인사이트를 제공하는 종합 대시보드 플랫폼입니다.
 
 SNS, 리테일, 리뷰 데이터를 수집하여 성분, 제형, 효능 트렌드를 분석하고, Multi-Agent LLM 시스템을 통해 심층적인 시장 인사이트를 생성합니다.
+
+---
+
+## 🖼 Demo
+
+<p align="center">
+  <img src="image/amore_clue_dashboard.png" alt="AMORE CLUE Dashboard" width="100%"/>
+</p>
+<p align="center"><sub>화장품 산업 트렌드 분석 대시보드 — 키워드 리더보드 · Retail/SNS Top 키워드 · AI 분석 패널</sub></p>
 
 ---
 
@@ -538,6 +549,18 @@ firebase deploy --only hosting
 | POST | `/api/llm/plc-prediction` | 7 | PLC 예측 |
 | POST | `/api/chat/text` | 7 | 텍스트 챗봇 |
 | POST | `/api/chat/multimodal` | 7 | 멀티모달 챗봇 |
+
+---
+
+## 👥 Team
+
+> 🏆 **AMOREPACIFIC AI INNOVATION CHALLENGE 2026 — 특별상**
+
+| Name | Role |
+|:---:|:---|
+| **김재환** ([@Jonny-rose-Kim](https://github.com/Jonny-rose-Kim)) | DB 구축, Agent 개발, Agent Flow 설계 |
+| **김진욱** ([@jinnwoook](https://github.com/jinnwoook)) | LLM Fine-tuning, 기능 구현 |
+| **안례진** | 기획 |
 
 ---
 
